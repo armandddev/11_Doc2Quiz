@@ -1,219 +1,233 @@
-# Backlog & Planning de sprints — Générateur de QCM pédagogique (Ollama / gemma)
+# Backlog & Planning de sprints — Générateur de QCM pédagogique (v2, structuré par niveaux)
 
-## 0. Contexte du projet
+## Logique de restructuration
 
-- **Objectif** : transformer des supports de cours (PDF, Markdown) en QCM d'auto-évaluation, avec distracteurs plausibles, feedback pédagogique, contrôle qualité, export LMS (Moodle XML / GIFT).
-- **Contraintes techniques** : 100% local (souveraineté des données), Ollama comme unique moteur LLM, modèle standardisé `gemma4:12b`, communication via API REST.
-- **Contraintes fonctionnelles fortes** (à ne jamais perdre de vue, elles traversent tous les sprints) :
-  1. Ne jamais paraphraser/copier des phrases du cours → générer des questions d'application (ex : exercices en maths à partir du cours, pas des questions "recopiées").
-  2. Non-répétition : un même support ne doit jamais reproduire le même QCM à deux générations différentes.
-  3. Profils utilisateurs persistants (Docker + volume/DB) avec historique de générations.
-  4. Apprentissage des préférences implicites (ex : "5 questions" demandé une fois → réutilisé par défaut ensuite) et explicites (feedback négatif du type "supprime tout, c'est mal fait").
-  5. L'IA doit être **critique** vis-à-vis de l'input (ex : signaler "support trop court/pas assez de contenu pour X questions") plutôt que de forcer une génération de mauvaise qualité.
-- **Équipe** : 4 personnes.
-- **Stack pressentie** : Python, Gradio (UI), FastAPI (API REST interne), Ollama (LLM), SQLite/PostgreSQL (profils + historique), Docker/Docker Compose, pytest (tests unitaires).
+Le backlog n'est plus découpé par épic/rôle métier mais par **3 niveaux fonctionnels**, chacun devant être validé (une "version qui marche") avant de passer au suivant :
 
-## 1. Répartition des rôles (équipe de 4)
+- **Niveau 1 — Génération de base** : questions de cours, avec calculs, avec niveaux de difficulté. Le prof peut encore un peu paramétrer.
+- **Niveau 2 — Génération autonome** : sans que le prof ne fournisse de modèle de questionnaire ni de paramétrage détaillé. Juste ses ressources + éventuellement du texte libre ou quelques cases à cocher. Doit marcher pour n'importe quelle matière.
+- **Niveau 3 — Correction persistante & personnalisation** : le système apprend de ses erreurs de façon définitive et par profil utilisateur, suit les tendances d'usage, et garantit qu'un même cours ne redonne jamais le même QCM.
 
-| Rôle | Responsabilités principales |
-|---|---|
-| **Dev A — Backend & Orchestration LLM** | API REST, intégration Ollama, prompt engineering génération, gestion du pipeline (ingestion → génération → validation → export) |
-| **Dev B — Data & Qualité IA** | Parsing PDF/Markdown, extraction de concepts, prompts de contrôle qualité (anti-répétition, anti-verbatim, criticité), logique disciplinaire (maths vs cours théorique) |
-| **Dev C — Frontend & UX** | Interface Gradio, maquettes (basse puis haute fidélité), écran profil/historique, ergonomie du feedback utilisateur |
-| **Dev D — Infra, Persistance & QA** | Docker/Docker Compose, base de données profils/historique, CI, tests unitaires, export Moodle/GIFT (formats fichiers) |
+Comme tout le monde touche à tout, **aucune US n'est assignée à une personne** : les tâches sont uniquement rangées par sprint. Le Sprint 0 et les US-01 à US-04 restent inchangés par rapport à la version précédente.
 
-> Le rôle de chef de projet (rédaction CDC, animation des rituels agiles, arbitrages backlog) peut être porté par une personne dédiée ou tournant — à trancher en Sprint 0. Je pars ici du principe que Dev A ou toi-même endosse ce rôle en plus de sa partie technique.
+---
 
-## 2. Découpage en épics
+## Sprint 0 — Semaine 1 : Cadrage (inchangé)
 
-| ID | Épic |
-|---|---|
-| E1 | Cadrage & gouvernance de projet |
-| E2 | Ingestion documentaire (PDF/Markdown) |
-| E3 | Génération contrainte de QCM (JSON via gemma4:12b) |
-| E4 | Anti-verbatim & créativité disciplinaire (maths, etc.) |
-| E5 | Contrôle qualité des distracteurs |
-| E6 | Anti-répétition entre générations |
-| E7 | Profils utilisateurs & historique (Docker/DB) |
-| E8 | Feedback utilisateur & apprentissage des préférences |
-| E9 | Posture critique de l'IA |
-| E10 | Export standardisé (Moodle XML / GIFT) |
-| E11 | Interface Gradio & maquettes |
-| E12 | Infrastructure, tests, qualité logicielle |
+- **US-01** (3 pts) — Cahier des charges validé.
+- **US-02** (2 pts) — Maquettes basse-fidélité.
+- **US-03** (2 pts) — Dépôt Git structuré + CI de base.
+- **US-04** (1 pt) — Backlog priorisé et sprinté.
 
-## 3. Backlog détaillé (User Stories)
+*(Non modifiées, cf. version précédente du document.)*
 
-Format : `US-xx | En tant que... je veux... afin de...` + critères d'acceptation (CA) + estimation en points (Fibonacci) + rôle porteur.
+---
 
-### E1 — Cadrage & gouvernance
+## Sprint 1 — Semaines 2-3 : Fondations techniques + amorce Niveau 1
 
-- **US-01** (3 pts, Dev PM/A) — En tant qu'équipe, je veux un **cahier des charges** validé afin de cadrer le périmètre.
-  CA : document listant objectifs, contraintes (Ollama local, gemma4:12b), fonctionnalités MoSCoW, planning macro, critères de succès. Validé par les 4 membres.
-- **US-02** (2 pts, Dev C) — En tant qu'équipe, je veux des **maquettes basse-fidélité** (wireframes) de l'interface afin d'aligner la vision UX avant le code.
-  CA : au moins 3 écrans (upload, génération/édition QCM, historique/profil) en wireframe (Figma/papier/Excalidraw).
-- **US-03** (2 pts, Dev D) — En tant que dev, je veux un **dépôt Git structuré** (mono-repo, conventions de commit, CI de base) afin de démarrer proprement.
-  CA : repo avec arborescence `backend/`, `frontend/`, `docker/`, `tests/`, README, `.gitignore`, pipeline CI qui lance au moins un lint.
-- **US-04** (1 pt, PM) — En tant que chef de projet, je veux un **backlog priorisé et sprinté** (ce présent document) afin de piloter l'avancement.
+**Objectif** : la donnée circule de bout en bout (upload → texte segmenté → discipline détectée), et l'infra tourne.
 
-### E2 — Ingestion documentaire
+- **US-05** (5 pts) — En tant qu'enseignant, je veux **uploader un support PDF** afin d'en extraire le texte exploitable pour la génération.
+  CA :
+  - Extraction du texte brut et de la structure (titres, sous-titres) via une lib type `pdfplumber`/`PyMuPDF`.
+  - Les PDF scannés (image pure) sont détectés et signalés par un message explicite ("PDF non exploitable, scan détecté, veuillez utiliser un OCR au préalable"), sans plantage de l'application.
+  - Le texte extrait est stocké, associé au document et horodaté.
+  - Testé sur au moins 3 PDF réels de matières différentes (ex. maths, lettres, sciences) avec validation manuelle de la qualité d'extraction.
 
-- **US-05** (5 pts, Dev B) — En tant qu'enseignant, je veux **uploader un PDF** afin d'en extraire le texte brut.
-  CA : extraction texte + structure (titres) via une lib type `pdfplumber`/`PyMuPDF` ; gestion des PDF scannés signalée comme non supportée (message clair, pas de plantage).
-- **US-06** (3 pts, Dev B) — En tant qu'enseignant, je veux **uploader un fichier Markdown** afin d'en extraire le contenu structuré.
-  CA : parsing des titres/sections Markdown conservé pour segmenter le cours par notion.
-- **US-07** (3 pts, Dev B) — En tant que système, je veux **segmenter le texte extrait par notion/section** afin de générer des QCM ciblés plutôt qu'un bloc unique.
-  CA : découpage basé sur les titres ; chaque section obtient un identifiant + un résumé de longueur.
-- **US-08** (2 pts, Dev B) — En tant que système, je veux **détecter la discipline/nature du contenu** (cours théorique vs. maths/exercices) afin d'adapter la stratégie de génération.
-  CA : heuristique simple (mots-clés, présence de formules/LaTeX, densité de symboles) + champ `type_contenu` stocké.
+- **US-06** (3 pts) — En tant qu'enseignant, je veux **uploader un fichier Markdown** afin d'en extraire le contenu structuré.
+  CA :
+  - Parsing des titres (`#`, `##`, `###`) pour construire une arborescence de sections.
+  - Le niveau hiérarchique de chaque section est conservé.
+  - Les blocs de code et les formules (LaTeX inline, ex. `$...$`) ne sont pas cassés par le parsing.
 
-### E3 — Génération contrainte de QCM
+- **US-07** (3 pts) — En tant que système, je veux **segmenter le texte extrait par notion/section** afin de générer des QCM ciblés plutôt qu'un bloc unique.
+  CA :
+  - Chaque section détectée reçoit un identifiant unique et un résumé automatique (1-2 phrases).
+  - Le découpage fonctionne aussi bien sur un support avec titres explicites que sur un support peu structuré (repli sur un découpage par paragraphes/longueur si aucun titre n'est détecté).
+  - Une même notion peut être rattachée à plusieurs sections si le contenu du cours le justifie.
 
-- **US-09** (5 pts, Dev A) — En tant que backend, je veux un **client d'appel REST vers Ollama** afin d'interroger `gemma4:12b` de façon fiabilisée (timeout, retry, gestion d'erreurs).
-  CA : module réutilisable, testé avec un mock d'Ollama, logs des appels.
-- **US-10** (5 pts, Dev A) — En tant qu'enseignant, je veux que le système **extraie les concepts clés** d'une section afin de savoir sur quoi générer des questions.
-  CA : prompt dédié retournant une liste de concepts avec leur section source.
-- **US-11** (8 pts, Dev A) — En tant qu'enseignant, je veux **générer un QCM au format JSON strict** (question, bonne réponse, 3 distracteurs, explication) afin de l'exploiter automatiquement.
-  CA : schéma JSON validé (ex. via `pydantic`/`jsonschema`) ; en cas de sortie invalide, une tentative de re-génération automatique est faite ; échec géré proprement (message à l'utilisateur, pas de crash).
-- **US-12** (3 pts, Dev A) — En tant qu'enseignant, je veux **choisir le nombre de questions** à générer afin d'adapter la charge du QCM.
-  CA : paramètre exposé dans l'API et l'UI, valeur par défaut = dernière valeur utilisée par l'utilisateur (lien avec US-24).
+- **US-08** (5 pts) — En tant que système, je veux **détecter automatiquement la discipline et la nature du contenu** (théorique vs. calcul/exercice) afin d'adapter la génération sans intervention du prof.
+  CA :
+  - Détection de la présence de calculs/formules (symboles mathématiques, LaTeX, opérateurs) vs. contenu théorique.
+  - Attribution automatique d'un ou plusieurs tags de discipline (maths, sciences, lettres, histoire, droit, etc.), sans configuration manuelle.
+  - Taux de détection correcte validé sur un jeu de test d'au moins 10 supports variés, avec un objectif de ≥ 80 % de bonnes détections.
+  - En cas d'ambiguïté, le système ne bloque jamais : il applique une stratégie de génération "générique" par défaut.
 
-### E4 — Anti-verbatim & créativité disciplinaire
+- **US-09** (5 pts) — En tant que backend, je veux un **client REST vers Ollama** afin d'interroger le modèle local de façon fiabilisée.
+  CA :
+  - Gestion du timeout et des retries (au moins 2 tentatives) en cas d'échec réseau.
+  - Chaque appel est loggé (prompt envoyé, temps de réponse, succès/échec) pour permettre debug et suivi de charge.
+  - Testé avec un mock du serveur simulant latence et erreurs.
+  - Le nom exact du modèle utilisé est un paramètre de configuration (pas en dur), pour pouvoir changer de modèle sans réécrire le code.
 
-- **US-13** (5 pts, Dev B) — En tant qu'enseignant, je veux que les **questions ne reprennent jamais des phrases du cours telles quelles** afin d'évaluer la compréhension et non le par-cœur.
-  CA : prompt imposant une reformulation/mise en situation ; test automatique de similarité texte (ex. ratio de n-grammes communs) entre question générée et texte source, avec seuil de rejet + régénération si dépassé.
-- **US-14** (5 pts, Dev B) — En tant qu'enseignant de maths, je veux que le système **génère des exercices d'application** (calcul, résolution) à partir du cours plutôt que des questions de restitution afin de tester la compétence réelle.
-  CA : prompt spécifique déclenché quand `type_contenu = maths/exercice` (cf. US-08), avec exemples few-shot ; vérification qu'au moins une opération/calcul apparaît dans la question générée.
-- **US-15** (3 pts, Dev B) — En tant qu'enseignant, je veux pouvoir **choisir un mode de génération** (restitution de connaissance vs. application/exercice) afin de garder la main sur la pédagogie.
-  CA : sélecteur exposé en UI, transmis au prompt.
+- **US-10** (5 pts) — En tant qu'équipe, je veux un **environnement Docker Compose complet** (backend, frontend, DB, Ollama) afin de garantir la reproductibilité.
+  CA :
+  - `docker-compose up` démarre l'ensemble des services en une seule commande.
+  - Le README documente les prérequis matériels (RAM/GPU nécessaires pour le modèle local) et la procédure de démarrage.
+  - Un healthcheck vérifie que chaque service est up avant de considérer le déploiement réussi.
 
-### E5 — Contrôle qualité des distracteurs
+- **US-11** (5 pts) — En tant qu'enseignant, je veux une **interface minimale d'upload** afin de lancer une extraction de mon support.
+  CA :
+  - Formulaire permettant d'uploader un PDF ou Markdown et de lancer l'extraction.
+  - Un indicateur de progression est visible pendant l'extraction/segmentation.
+  - La liste des notions détectées (US-07) est affichée avant toute génération.
 
-- **US-16** (5 pts, Dev B) — En tant que système, je veux **faire relire chaque QCM par le LLM en tant que "correcteur"** afin de détecter les distracteurs ambigus ou involontairement corrects.
-  CA : second appel LLM avec prompt de validation, retour structuré (`valide: bool`, `raison`) par distracteur.
-- **US-17** (3 pts, Dev A) — En tant que système, je veux **régénérer automatiquement** un distracteur rejeté par le contrôle qualité afin de ne pas bloquer tout le QCM.
-  CA : boucle de correction limitée (ex. 2 tentatives max), sinon la question est marquée "à revoir manuellement".
-- **US-18** (2 pts, Dev C) — En tant qu'enseignant, je veux **voir visuellement quelles questions ont été signalées** par le contrôle qualité afin de les relire en priorité.
-  CA : badge/couleur dans l'UI sur les questions marquées "à revoir".
+---
 
-### E6 — Anti-répétition entre générations
+## Sprint 2 — Semaines 4-5 : Niveau 1 complet (difficulté, calculs) + persistance de base
 
-- **US-19** (5 pts, Dev A) — En tant qu'enseignant, je veux que **relancer une génération sur le même support ne donne jamais le même QCM** afin de varier les évaluations (ex. plusieurs classes, plusieurs tentatives).
-  CA : stockage d'un hash/empreinte des questions déjà générées pour ce support+utilisateur ; le prompt inclut une consigne explicite de variation + une liste des angles déjà couverts ; test vérifiant que 2 générations successives ont un taux de similarité de questions sous un seuil défini.
-- **US-20** (2 pts, Dev D) — En tant que système, je veux **stocker l'historique des QCM générés par support** afin d'alimenter la logique anti-répétition et l'historique utilisateur.
-  CA : table `generations` liée à `documents` et `users`.
+**Objectif** : le Niveau 1 fonctionne de bout en bout — un enseignant obtient un QCM avec calculs et niveaux de difficulté, et le système persiste les données.
 
-### E7 — Profils utilisateurs & historique
+- **US-12** (8 pts) — En tant qu'enseignant, je veux **générer un QCM avec des niveaux de difficulté explicites** afin d'adapter l'évaluation.
+  CA :
+  - Chaque question est associée à un niveau parmi {facile, moyen, difficile}, déterminé par le système en fonction de la complexité réelle de la notion source (pas un tirage aléatoire).
+  - Le prof peut, en option, indiquer une répartition souhaitée (ex. 2 faciles / 2 moyennes / 1 difficile), mais ce n'est jamais obligatoire.
+  - Le format de sortie (question, niveau, bonne réponse, 3 distracteurs, explication) est validé par un schéma strict (`pydantic`/`jsonschema`).
+  - En cas de JSON invalide, une régénération automatique est tentée (2 essais max) avant un message d'erreur explicite, sans crash.
 
-- **US-21** (5 pts, Dev D) — En tant qu'enseignant, je veux **avoir un compte/profil** afin de retrouver mes documents et mes QCM précédents.
-  CA : authentification simple (login/mot de passe ou SSO IUT si dispo) ; conteneurisé, données persistées dans un volume Docker.
-- **US-22** (3 pts, Dev D) — En tant qu'enseignant, je veux **consulter l'historique de mes générations** afin de réutiliser ou comparer d'anciens QCM.
-  CA : écran listant support, date, nombre de questions, statut (validé, à revoir, supprimé).
-- **US-23** (3 pts, Dev D) — En tant que système, je veux que **toutes les données (profils, documents, QCM) soient persistées via Docker volumes/DB** afin de respecter la contrainte de souveraineté et de survie aux redémarrages.
-  CA : `docker-compose.yml` avec service DB + volume nommé ; test de redémarrage sans perte de données.
+- **US-13** (5 pts) — En tant qu'enseignant de matière scientifique, je veux que le système **génère des exercices de calcul réels** afin de tester la compétence et pas la restitution.
+  CA :
+  - Quand la discipline détectée (US-08) implique du calcul, chaque question générée nécessite une résolution numérique réelle (pas une question de définition).
+  - Un contrôle automatique vérifie qu'au moins une opération/valeur numérique apparaît dans l'énoncé ou la résolution attendue.
+  - Les valeurs numériques utilisées sont différentes de celles des exemples du cours source, tout en restant cohérentes avec la notion enseignée.
+  - Testé sur au moins 3 supports de maths/sciences de niveaux différents.
 
-### E8 — Feedback utilisateur & apprentissage des préférences
+- **US-14** (5 pts) — En tant qu'enseignant, je veux que **les questions ne reprennent jamais des phrases du cours telles quelles** (anti-verbatim de base) afin d'évaluer la compréhension.
+  CA :
+  - Un test de similarité texte (ratio de n-grammes communs, ex. n=4) compare chaque question générée au texte source.
+  - Si le taux de similarité dépasse un seuil défini (valeur initiale proposée : 40 %, ajustable), la question est automatiquement régénérée (2 essais max).
+  - Le seuil est un paramètre de configuration externe, pas une valeur en dur dans le code, pour permettre l'ajustement pendant les tests utilisateurs.
 
-- **US-24** (5 pts, Dev A) — En tant que système, je veux **mémoriser les préférences explicites** (ex. nombre de questions demandé) afin de les réappliquer par défaut aux prochaines générations du même utilisateur.
-  CA : table `preferences_utilisateur` ; les valeurs par défaut des formulaires de génération sont pré-remplies avec la dernière préférence connue.
-- **US-25** (5 pts, Dev B) — En tant qu'enseignant, je veux pouvoir **rejeter en bloc un QCM en donnant une raison** (ex. "mal fait") afin que le système en tienne compte pour la suite.
-  CA : bouton "Rejeter tout" + champ de commentaire libre ; l'information est stockée et injectée (résumée) dans les prompts futurs pour ce support/utilisateur (ex. "l'utilisateur a rejeté une génération précédente pour raison X, éviter de reproduire ce défaut").
-- **US-26** (3 pts, Dev C) — En tant qu'enseignant, je veux **noter/valider chaque question individuellement** (👍/👎) afin d'affiner progressivement la qualité perçue.
-  CA : UI de notation par question, stockage en base, agrégation visible dans l'historique.
+- **US-15** (5 pts) — En tant qu'enseignant, je veux avoir un **profil persistant** afin de retrouver mes documents et mes QCM après redémarrage du système.
+  CA :
+  - Création de compte minimale (login/mot de passe) et reconnexion possible.
+  - Données stockées dans une base persistée via un volume Docker nommé.
+  - Un test de redémarrage du conteneur confirme l'absence de perte de données.
+  - Chaque document et chaque QCM généré est explicitement rattaché au profil qui l'a créé.
 
-### E9 — Posture critique de l'IA
+- **US-16** (5 pts) — En tant qu'enseignant, je veux une **interface d'édition/validation des QCM générés** afin de corriger avant utilisation.
+  CA :
+  - Édition en ligne du texte de la question, des distracteurs, du feedback et du niveau de difficulté.
+  - Les modifications sont sauvegardées et horodatées.
+  - Un indicateur visuel distingue une question "générée telle quelle" d'une question "modifiée manuellement" (utile pour le Niveau 3 plus tard).
 
-- **US-27** (5 pts, Dev B) — En tant qu'enseignant, je veux que le système **refuse ou m'alerte si le support est trop court/pauvre** pour générer le nombre de questions demandé afin d'éviter des QCM artificiels ou redondants.
-  CA : heuristique (longueur du texte, nombre de concepts extraits) comparée au nombre de questions demandé ; si ratio insuffisant, message explicite ("Contenu insuffisant pour générer 10 questions distinctes, 4 questions de qualité peuvent être proposées à la place") + proposition d'un nombre alternatif.
-- **US-28** (3 pts, Dev A) — En tant qu'enseignant, je veux que **l'IA justifie ses refus/alertes** afin de comprendre et éventuellement enrichir mon support.
-  CA : message d'alerte accompagné d'une explication concrète (ex. "seulement 2 concepts distincts identifiés").
+---
 
-### E10 — Export standardisé
+## Sprint 3 — Semaines 6-7 : Niveau 2 (génération autonome, multi-matières)
 
-- **US-29** (5 pts, Dev D) — En tant qu'enseignant, je veux **exporter un QCM au format GIFT** afin de l'importer dans Moodle.
-  CA : génération d'un fichier `.txt` conforme à la syntaxe GIFT, incluant feedback ; test d'import réel dans une instance Moodle de test si disponible.
-- **US-30** (5 pts, Dev D) — En tant qu'enseignant, je veux **exporter un QCM au format XML Moodle** afin de disposer d'une alternative interopérable.
-  CA : fichier XML conforme au schéma Moodle QTI/Moodle XML, avec bonne réponse marquée et feedback par réponse.
-- **US-31** (2 pts, Dev C) — En tant qu'enseignant, je veux **télécharger l'export directement depuis l'interface** afin de ne pas manipuler de fichiers serveur.
-  CA : bouton de téléchargement dans Gradio, nom de fichier explicite (support + date).
+**Objectif** : le prof n'a plus besoin de paramétrer un modèle de questionnaire — le système décide seul, et ça marche sur n'importe quelle matière.
 
-### E11 — Interface Gradio & maquettes
+- **US-17** (8 pts) — En tant qu'enseignant, je veux que le système **génère un QCM de façon autonome, sans que je fournisse de modèle de questionnaire**, afin de gagner du temps quelle que soit ma matière.
+  CA :
+  - Le prof ne renseigne aucun paramètre de structure (pas de "modèle" à remplir) : il fournit uniquement le support, plus éventuellement quelques cases à cocher générales (ex. "inclure des calculs", "viser une difficulté élevée").
+  - Le système détermine seul, à partir du contenu : le nombre de questions pertinent, la répartition des niveaux de difficulté, et le type de question (restitution vs. application) le mieux adapté à la matière détectée.
+  - Aucune configuration technique (structure JSON, prompt, etc.) n'est visible ni accessible côté prof.
+  - Testé sur au moins 5 matières différentes, sans aucune adaptation manuelle du prompt entre les tests, pour valider "ça marche avec n'importe quelle matière".
 
-- **US-32** (5 pts, Dev C) — En tant qu'enseignant, je veux une **interface Gradio d'upload et de configuration** (nombre de questions, mode restitution/exercice) afin de lancer une génération simplement.
-  CA : formulaire fonctionnel connecté à l'API backend.
-- **US-33** (5 pts, Dev C) — En tant qu'enseignant, je veux une **interface d'édition/validation des QCM générés** afin de corriger avant export.
-  CA : édition inline de la question, des distracteurs et du feedback ; sauvegarde des modifications.
-- **US-34** (3 pts, Dev C) — En tant qu'enseignant, je veux une **interface de profil/historique** afin de gérer mes documents et préférences.
-  CA : écran listant historique + préférences actuelles + possibilité de les modifier manuellement.
-- **US-35** (3 pts, Dev C) — En tant qu'équipe, je veux des **maquettes haute-fidélité** validées afin de guider le développement final de l'UI.
-  CA : maquettes couvrant les 4 écrans clés, validées par l'équipe avant développement du Sprint concerné.
+- **US-18** (5 pts) — En tant qu'enseignant, je veux une **interface ultra-simplifiée** (upload + texte libre ou cases à cocher) afin de lancer une génération sans configuration technique.
+  CA :
+  - L'écran de génération ne propose que : upload du support + 2-3 cases à cocher optionnelles (ex. "avec calculs", "difficulté élevée") + un champ texte libre optionnel pour une consigne complémentaire.
+  - Aucun champ n'est obligatoire à part l'upload.
+  - Un enseignant non technique doit pouvoir lancer une génération complète en moins de 30 secondes sans explication préalable (test utilisateur informel à consigner).
 
-### E12 — Infrastructure, tests, qualité logicielle
+- **US-19** (5 pts) — En tant que système, je veux une **détection de discipline généralisée et ouverte** (pas limitée à une liste fermée de matières) afin de fonctionner sur des matières imprévues.
+  CA :
+  - La détection (US-08) est étendue via une classification ouverte (ou un prompt de classification LLM) plutôt qu'une liste figée de matières.
+  - Les contenus hybrides (ex. SVT avec calculs de génétique) combinent plusieurs stratégies de génération sans erreur.
+  - Testé explicitement sur des matières non prévues initialement (ex. droit, langues vivantes, arts plastiques) : pas de crash, pas de génération dégradée silencieuse.
 
-- **US-36** (5 pts, Dev D) — En tant qu'équipe, je veux un **environnement Docker Compose complet** (backend, frontend, DB, Ollama) afin de garantir la reproductibilité sur tous les postes.
-  CA : `docker-compose up` lance l'ensemble de la stack en une commande, documenté dans le README.
-- **US-37** (5 pts, Dev D, transverse) — En tant qu'équipe, je veux des **tests unitaires** sur les modules critiques (parsing, génération JSON, contrôle qualité, export) afin de sécuriser les évolutions.
-  CA : couverture minimale définie (ex. 60%) sur les modules backend, exécutés en CI.
-- **US-38** (2 pts, Dev D) — En tant qu'équipe, je veux une **CI qui exécute lint + tests à chaque push** afin de détecter les régressions tôt.
+- **US-20** (5 pts) — En tant qu'enseignant, je veux que le système **m'alerte si mon support est trop pauvre pour générer un QCM de qualité**, quelle que soit la matière, afin d'éviter des questions artificielles.
+  CA :
+  - Quand le contenu est jugé insuffisant (peu de concepts distincts détectés), aucune génération dégradée n'est produite silencieusement.
+  - Un message explicite précise la raison exacte (ex. "seulement 2 concepts distincts identifiés, une génération de 10 questions produirait des répétitions").
+  - Une proposition alternative chiffrée est faite (ex. "4 questions de qualité peuvent être générées à la place").
+  - Ce contrôle s'applique quelle que soit la matière détectée, pas seulement pour les cours théoriques.
 
-## 4. Planning en sprints
+- **US-21** (5 pts) — En tant que système, je veux que **l'anti-verbatim fonctionne sur tous types de contenus** (texte littéraire, code, formules, contenu juridique) afin de garantir le Niveau 2 sur toute matière.
+  CA :
+  - Un jeu de test couvrant au moins 5 matières différentes confirme qu'aucune question générée ne dépasse le seuil de similarité défini (US-14) avec le texte source.
+  - Les faux positifs (question rejetée alors qu'elle était acceptable) sont mesurés, et le seuil est ajusté si le taux de faux positifs dépasse 10 %.
 
-Découpage proposé sur **10 semaines**, sprints de 2 semaines (sauf Sprint 0 = cadrage sur 1 semaine, conforme à ta contrainte "CA fait en semaine 1").
+---
 
-### Sprint 0 — Semaine 1 : Cadrage
-Objectif : livrer le cahier des charges et poser les bases techniques.
-- US-01, US-02, US-03, US-04
-- Livrable clé : **Cahier des charges validé** + wireframes + repo initialisé.
+## Sprint 4 — Semaines 8-9 : Niveau 3 (correction persistante, profils, tendances, anti-répétition) + export
 
-### Sprint 1 — Semaines 2-3 : Fondations techniques
-Objectif : la donnée circule de bout en bout (upload → texte extrait), l'infra tourne.
-- US-05, US-06, US-07, US-08 (ingestion)
-- US-09 (client Ollama)
-- US-36 (Docker Compose complet)
-- US-32 (UI upload minimal)
-- Démo de sprint : upload d'un PDF/Markdown → texte segmenté visible, Ollama joignable via l'app.
+**Objectif** : le système apprend définitivement de ses erreurs, par profil, suit les habitudes d'usage, et garantit la variété entre générations.
 
-### Sprint 2 — Semaines 4-5 : Génération QCM de base
-Objectif : premier bout-en-bout génération JSON, avec persistance et profils.
-- US-10, US-11, US-12 (génération)
-- US-21, US-22, US-23 (profils/historique/Docker persistant)
-- US-33 (UI édition/validation basique)
-- Démo de sprint : un enseignant se connecte, upload un support, obtient un QCM JSON affiché et éditable.
+- **US-22** (8 pts) — En tant qu'enseignant, je veux que **la correction d'une erreur signalée s'applique pour toujours, à toutes mes futures générations**, et pas seulement au QCM en cours, afin de ne jamais revoir la même erreur.
+  CA :
+  - Quand une question ou un distracteur est signalé comme faux/ambigu, la correction est enregistrée comme une "règle apprise" rattachée au profil de l'enseignant (et à la notion/section concernée si pertinent).
+  - Toute génération future sur un support similaire ou la même notion, pour ce même profil, intègre cette règle (le prompt inclut un résumé des erreurs déjà corrigées à éviter).
+  - La règle apprise persiste après redémarrage du système (stockage en base, pas en mémoire).
+  - Un test vérifie qu'après correction d'une erreur donnée, une nouvelle génération sur le même support ne reproduit pas l'erreur signalée.
+  - Une limite est fixée sur le nombre de règles conservées par profil (ex. 50 dernières corrections) pour ne pas saturer le prompt.
+  - Chaque profil a ses propres règles apprises : les corrections d'un enseignant n'affectent jamais les générations d'un autre enseignant.
 
-### Sprint 3 — Semaines 6-7 : Qualité pédagogique
-Objectif : QCM réellement fiables et non redondants.
-- US-13, US-14, US-15 (anti-verbatim / maths)
-- US-16, US-17, US-18 (contrôle qualité distracteurs)
-- US-19, US-20 (anti-répétition)
-- US-27, US-28 (posture critique)
-- Démo de sprint : régénérer deux fois le même support donne deux QCM différents ; un support trop pauvre déclenche une alerte.
+- **US-23** (5 pts) — En tant qu'enseignant, je veux **consulter l'historique complet de mes documents, générations et corrections** afin de suivre l'évolution de mes QCM.
+  CA :
+  - L'historique liste support, date, nombre de questions, statut (validé/à revoir/supprimé) et corrections appliquées.
+  - Les données sont strictement isolées entre profils (aucune fuite entre comptes enseignants).
+  - Un filtre par support, date ou statut est disponible.
 
-### Sprint 4 — Semaines 8-9 : Personnalisation & export
-Objectif : le produit apprend de l'utilisateur et devient exploitable en LMS.
-- US-24, US-25, US-26 (préférences & feedback)
-- US-29, US-30, US-31 (export GIFT/Moodle XML)
-- US-34, US-35 (UI profil + maquettes finales alignées)
-- Démo de sprint : préférence "5 questions" réappliquée automatiquement ; export GIFT importé dans Moodle de test.
+- **US-24** (5 pts) — En tant que système, je veux **suivre les tendances d'utilisation de chaque enseignant** (préférences implicites) afin de pré-remplir intelligemment les paramètres par défaut.
+  CA :
+  - Le système enregistre les habitudes récurrentes (nombre de questions habituel, niveaux de difficulté fréquemment choisis, matières les plus utilisées).
+  - Ces tendances sont utilisées pour pré-remplir automatiquement les paramètres proposés à la génération suivante (ex. si l'enseignant choisit systématiquement "difficulté élevée", cela devient la valeur par défaut).
+  - L'enseignant peut consulter et réinitialiser ces préférences apprises depuis son profil.
 
-### Sprint 5 — Semaine 10 : Stabilisation & recette
-Objectif : qualité logicielle et présentation finale.
-- US-37, US-38 (tests unitaires + CI, finalisés/complétés)
-- Corrections issues des démos précédentes
-- Recette globale, préparation de la soutenance/démo finale
+- **US-25** (5 pts) — En tant qu'enseignant, je veux pouvoir **rejeter un QCM entier avec un motif libre** afin que le système évite de reproduire ce défaut à l'avenir.
+  CA :
+  - Un bouton "Rejeter tout" avec un champ de commentaire libre est disponible sur chaque génération.
+  - Le motif est résumé automatiquement et injecté dans les prompts futurs pour ce profil/ce support.
+  - Un test vérifie qu'après un rejet motivé (ex. "trop de questions de restitution"), la génération suivante sur le même support tend à corriger le défaut signalé.
 
-## 5. Contenu attendu du Cahier des charges (Semaine 1)
+- **US-26** (3 pts) — En tant qu'enseignant, je veux **noter chaque question individuellement** (👍/👎) afin d'affiner progressivement la qualité perçue.
+  CA :
+  - Chaque question peut être notée indépendamment du reste du QCM.
+  - Les notations sont agrégées et visibles dans l'historique (taux d'approbation par support, par matière, dans le temps).
+  - Une notion recevant des notes négatives répétées déclenche une alerte suggérant de revoir la stratégie de génération pour cette notion.
 
-Pour tenir le délai d'une semaine, structure-le simplement :
-1. Contexte et enjeux pédagogiques
-2. Objectifs et périmètre (MoSCoW : Must/Should/Could/Won't)
-3. Contraintes techniques (100% local, Ollama, `gemma4:12b`, Docker)
-4. Utilisateurs cibles et parcours principal
-5. Exigences non-fonctionnelles (souveraineté des données, reproductibilité, coûts)
-6. Planning macro (les sprints ci-dessus)
-7. Répartition des rôles
-8. Risques identifiés (ex. qualité des distracteurs générés, temps de génération avec un modèle 12B en local, taille des supports vs. capacité contextuelle)
+- **US-27** (8 pts) — En tant qu'enseignant, je veux que **deux générations sur le même cours ne donnent jamais les mêmes questions**, afin de pouvoir varier les évaluations (plusieurs classes, plusieurs tentatives).
+  CA :
+  - Deux générations successives sur le même support et le même profil ne produisent jamais de question identique ou quasi identique (seuil de similarité défini, proposition initiale : 30 %).
+  - Un historique des questions déjà posées (et des angles/notions déjà couverts) est stocké et transmis explicitement au prompt de la génération suivante.
+  - Un test automatisé génère 3 fois de suite un QCM sur le même support et vérifie que le taux de chevauchement entre les 3 générations reste sous le seuil défini.
+  - Cette règle s'applique indépendamment du niveau (1, 2 ou 3) et de la matière détectée.
 
-## 6. Points de vigilance transverses (à rappeler à chaque sprint review)
+- **US-28** (5 pts) — En tant qu'enseignant, je veux **exporter un QCM au format GIFT** afin de l'importer dans Moodle.
+  CA :
+  - Fichier `.txt` conforme à la syntaxe GIFT, incluant le feedback par réponse.
+  - Échappement correct des caractères spéciaux GIFT (`~`, `=`, `#`, etc.).
+  - Test d'import réussi dans une instance Moodle de test (ou, à défaut, validation via un parseur GIFT tiers).
 
-- **Non-répétition** (US-19) et **anti-verbatim** (US-13/14) sont les fonctionnalités les plus à risque techniquement : prévoir du temps de test avec de vrais supports de cours dès le Sprint 3, pas seulement en fin de projet.
-- Le **contrôle qualité** (US-16/17) double le nombre d'appels LLM par QCM : surveiller les temps de réponse d'un modèle 12B en local et prévoir un indicateur de progression dans l'UI.
-- **Docker + profils** (E7) doit être posé tôt (Sprint 2) car l'historique et les préférences (E8) en dépendent directement.
+- **US-29** (5 pts) — En tant qu'enseignant, je veux **exporter un QCM au format XML Moodle** afin de disposer d'une alternative interopérable.
+  CA :
+  - Fichier XML conforme au format Moodle (type "multichoice"), bonne réponse marquée, feedback par réponse.
+  - Le fichier est validé par un parseur XML avant d'être proposé au téléchargement (jamais de fichier corrompu livré).
+
+- **US-30** (2 pts) — En tant qu'enseignant, je veux **télécharger directement l'export depuis l'interface** afin de ne pas manipuler de fichiers serveur.
+  CA :
+  - Bouton de téléchargement disponible pour chaque format (GIFT, XML).
+  - Nom de fichier explicite incluant le support et la date (ex. `chapitre3-thermo_2026-09-07.gift`).
+
+---
+
+## Sprint 5 — Semaine 10 : Stabilisation & recette
+
+**Objectif** : valider les 3 niveaux de bout en bout et sécuriser la qualité logicielle.
+
+- **US-31** (5 pts) — En tant qu'équipe, je veux des **tests unitaires sur les modules critiques** afin de sécuriser les évolutions.
+  CA :
+  - Couverture ≥ 60 % sur : parsing, génération JSON, anti-verbatim, anti-répétition, correction persistante (US-22), export.
+  - Tests exécutés automatiquement en CI à chaque push.
+
+- **US-32** (2 pts) — En tant qu'équipe, je veux une **CI qui exécute lint + tests à chaque push** afin de détecter les régressions tôt.
+  CA :
+  - Pipeline CI bloquant en cas d'échec de lint ou de test.
+  - Temps d'exécution de la CI documenté et raisonnable (< 10 min).
+
+- **US-33** (5 pts) — En tant qu'équipe, je veux une **recette globale couvrant les 3 niveaux** afin de valider le produit avant la soutenance.
+  CA :
+  - Un scénario de recette couvre explicitement : (1) génération de base avec difficulté et calculs, (2) génération autonome multi-matières sans paramétrage, (3) correction persistante + anti-répétition vérifiées sur plusieurs générations successives.
+  - Au moins un support de test différent est utilisé par niveau.
+  - Un rapport de recette formalisé (succès/échec par critère d'acceptation) est produit et partagé avec l'équipe avant la soutenance.
