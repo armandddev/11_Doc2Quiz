@@ -92,8 +92,7 @@ Format : `US-xx | En tant que... je veux... afin de...` + critères d'acceptatio
   CA : second appel LLM avec prompt de validation, retour structuré (`valide: bool`, `raison`) par distracteur.
 - **US-17** (3 pts, Dev A) — En tant que système, je veux **régénérer automatiquement** un distracteur rejeté par le contrôle qualité afin de ne pas bloquer tout le QCM.
   CA : boucle de correction limitée (ex. 2 tentatives max), sinon la question est marquée "à revoir manuellement".
-- **US-18** (2 pts, Dev C) — En tant qu'enseignant, je veux **voir visuellement quelles questions ont été signalées** par le contrôle qualité afin de les relire en priorité.
-  CA : badge/couleur dans l'UI sur les questions marquées "à revoir".
+
 
 ### E6 — Anti-répétition entre générations
 
@@ -144,8 +143,7 @@ Format : `US-xx | En tant que... je veux... afin de...` + critères d'acceptatio
   CA : édition inline de la question, des distracteurs et du feedback ; sauvegarde des modifications.
 - **US-34** (3 pts, Dev C) — En tant qu'enseignant, je veux une **interface de profil/historique** afin de gérer mes documents et préférences.
   CA : écran listant historique + préférences actuelles + possibilité de les modifier manuellement.
-- **US-35** (3 pts, Dev C) — En tant qu'équipe, je veux des **maquettes haute-fidélité** validées afin de guider le développement final de l'UI.
-  CA : maquettes couvrant les 4 écrans clés, validées par l'équipe avant développement du Sprint concerné.
+
 
 ### E12 — Infrastructure, tests, qualité logicielle
 
@@ -182,7 +180,7 @@ Objectif : premier bout-en-bout génération JSON, avec persistance et profils.
 ### Sprint 3 — Semaines 6-7 : Qualité pédagogique
 Objectif : QCM réellement fiables et non redondants.
 - US-13, US-14, US-15 (anti-verbatim / maths)
-- US-16, US-17, US-18 (contrôle qualité distracteurs)
+- US-16, US-17(contrôle qualité distracteurs)
 - US-19, US-20 (anti-répétition)
 - US-27, US-28 (posture critique)
 - Démo de sprint : régénérer deux fois le même support donne deux QCM différents ; un support trop pauvre déclenche une alerte.
@@ -191,7 +189,8 @@ Objectif : QCM réellement fiables et non redondants.
 Objectif : le produit apprend de l'utilisateur et devient exploitable en LMS.
 - US-24, US-25, US-26 (préférences & feedback)
 - US-29, US-30, US-31 (export GIFT/Moodle XML)
-- US-34, US-35 (UI profil + maquettes finales alignées)
+- US-34
+(UI profil + maquettes finales alignées)
 - Démo de sprint : préférence "5 questions" réappliquée automatiquement ; export GIFT importé dans Moodle de test.
 
 ### Sprint 5 — Semaine 10 : Stabilisation & recette
