@@ -1,1 +1,1 @@
-from .extraction import extractFromPdf, extractTitles
+from .extraction import extractFromPdf, extractTitles, extractFromMd, extractPlainTextFromTree, extractTitlesFromTree, get_node_text
