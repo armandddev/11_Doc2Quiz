@@ -1,52 +1,80 @@
 import gradio as gr
+from TemplateQuestionsCours import get_prompt_questions_cours
 
-############
-## STYLES ##
-############
+####################
+## STYLES GÉNÉRAL ##
+####################
+
 theme_global = gr.themes.Soft(
     primary_hue=gr.themes.colors.blue,
     secondary_hue=gr.themes.colors.blue,
     font=[gr.themes.GoogleFont("Roboto"), "ui-sans-serif", "sans-serif"],
 ).set(
-        input_border_color="black",  # Bordure noire
-        input_border_width="1px",  # Épaisseur du cadre
-    )
-
+    input_border_color="black",
+    input_border_width="1px",
+)
 
 custom_css = """
-/* Positionnement et style de la zone de saisie de la matière */
+/* ==========================================================================
+   1. STRUCTURE GÉNÉRALE & FORMULAIRES (PAGE 1)
+   ========================================================================== */
+
+/* Champs Sujet et Niveau */
 .zone-matiere {
-    width: 60% ;
-    margin-left: 25% ;
-    background: transparent ;
-    border: none ;
-    box-shadow: none ;
+    width: 60% !important;
+    margin-left: 25% !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
+/* Bordure noire sur la zone texte et le menu déroulant */
+.zone-matiere textarea,
+.zone-matiere input,
+.zone-matiere > .block,
+.zone-matiere .wrap {
+    border: 1px solid #000000 !important;
+    background-color: #ffffff !important;
+}
 
+/* Priorité d'affichage pour la liste déroulante */
+.zone-matiere ul {
+    z-index: 9999 !important;
+}
 
-/* Rend le conteneur de la colonne totalement transparent */
-.gradio-container .block,
+/* Zone d'import de document avec bordure noire */
+.upload_docSujet {
+    width: 60% !important;
+    margin-left: 25% !important;
+    background: transparent !important;
+}
+
+.upload_docSujet > .block,
+.upload_docSujet .file-preview-holder,
+.upload_docSujet [data-testid="file-upload"] {
+    border: 1px solid #000000 !important;
+    border-radius: 4px !important;
+    background-color: #ffffff !important;
+}
+
+/* Transparence des conteneurs sans casser les bordures intérieures */
 .gradio-container .form {
-    background: transparent ;
-    border: none ;
-    box-shadow: none ;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
 }
 
-.upload_doc {
-    width: 70% ;
-    margin-left: 20% ;
-    background: transparent ;
-}
-
+/* Boutons de navigation verts ("Passer à l'étape suivante", "Retour") */
 .ButtonSuivante {
-    width: 20% ;
-    margin-left: 40% ;
-    background-color: green ;
-    color: white ;
+    width: 20% !important;
+    margin-left: 40% !important;
+    background-color: green !important;
+    color: white !important;
 }
 
-/* Empilement vertical et centrage */
+/* ==========================================================================
+   2. CHOIX DU MODE DE RÉVISION (PAGE 2)
+   ========================================================================== */
+
 .select-mode .wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -54,7 +82,7 @@ custom_css = """
     gap: 16px !important;
 }
 
-/* Style de base des cases (rectangle gris clair avec bordure noire) */
+/* Rectangle gris clair avec bordure noire */
 .select-mode label {
     width: 50% !important;
     min-height: 55px !important;
@@ -68,25 +96,23 @@ custom_css = """
     transition: background-color 0.2s ease !important;
 }
 
-/* Texte à l'intérieur */
 .select-mode label span {
     font-size: 1.05rem !important;
     font-weight: 500 !important;
     color: #000000 !important;
 }
 
-/* Cache le rond radio natif */
 .select-mode input[type="radio"] {
     display: none !important;
 }
 
-/* Case sélectionnée : fond jaune clair */
+/* Sélection active : fond jaune clair */
 .select-mode label:has(input:checked),
 .select-mode label.selected {
     background-color: #e8f0a0 !important;
 }
 
-/* Bouton vert du bas "Générer mon QCM" */
+/* Bouton vert "Générer mon QCM" */
 .btn-generer {
     width: 50% !important;
     margin-left: 25% !important;
@@ -98,7 +124,124 @@ custom_css = """
     font-size: 1.05rem !important;
     font-weight: 600 !important;
 }
+
+/* ==========================================================================
+   3. QUESTIONNAIRE QCM (PAGE 3)
+   ========================================================================== */
+
+/* Lien retour "← Quitter" */
+.btn-quitter {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 1rem !important;
+    color: #4b5563 !important;
+    cursor: pointer !important;
+    width: auto !important;
+    text-align: left !important;
+    padding: 0 !important;
+    margin-left: 25% !important;
+    margin-bottom: 10px !important;
+}
+
+/* En-tête bleu de la question */
+.bandeau-question {
+    width: 50% !important;
+    margin-left: 25% !important;
+    background-color: #8195cf !important;
+    border-radius: 4px !important;
+    padding: 20px 24px !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+    margin-bottom: 30px !important;
+}
+
+.bandeau-question .num-q {
+    color: #4a5d91;
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 6px;
+}
+
+.bandeau-question .texte-q {
+    color: #000000;
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* Options de réponse */
+.qcm-options .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 16px !important;
+}
+
+.qcm-options label {
+    width: 50% !important;
+    min-height: 58px !important;
+    background-color: #d9d9d9 !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 0 20px !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    transition: background-color 0.15s ease !important;
+}
+
+.qcm-options input[type="radio"] {
+    display: none !important;
+}
+
+.qcm-options label span {
+    font-size: 1.15rem !important;
+    font-weight: 500 !important;
+    color: #000000 !important;
+    width: 100% !important;
+    text-align: center !important;
+}
+
+.qcm-options label:has(input:checked),
+.qcm-options label.selected {
+    background-color: #cbd5e1 !important;
+    border: 2px solid #1e3a8a !important;
+}
+
+/* Bouton vert "Valider mon choix" */
+.btn-valider {
+    width: 50% !important;
+    margin-left: 25% !important;
+    height: 52px !important;
+    background-color: #6ee787 !important;
+    color: #000000 !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 2px !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    margin-top: 25px !important;
+}
 """
+
+#############################
+## MOCK EN ATTENTE DU LLM  ##
+#############################
+MOCK_COURS = [
+    {
+        "id": 1,
+        "question": "Quelle est la formule du déterminant (delta) ?",
+        "options": ["(a+b)(a-b)", "b² - 4ac", "a² - b²", "a² + b²"],
+        "bonne_reponse": "b² - 4ac",
+    },
+    {
+        "id": 2,
+        "question": "Quelle est la dérivée de f(x) = x² ?",
+        "options": ["2x", "x", "2", "x² / 2"],
+        "bonne_reponse": "2x",
+    },
+]
 
 #######################
 ## Fonctions BackEnd ##
@@ -109,46 +252,116 @@ def choixDifficulte(choix):
     return gr.update(visible=False, value="")
 
 def lancer_ChangementPage(matiere, upload_doc, difficulte, autre_precision):
-    # Vérification des champs vides, si champs vides --> message d'erreur (popup) et ne change pas de page
     if not matiere or matiere.strip() == "":
         gr.Warning("Veuillez entrer le thème de votre matière.")
-        return gr.update(), gr.update()  
+        return gr.update(), gr.update(), gr.update()
 
     if upload_doc is None:
         gr.Warning("Veuillez déposer un fichier.")
-        return gr.update(), gr.update()
+        return gr.update(), gr.update(), gr.update()
 
     if difficulte == "--Choisir la difficulté--":
         gr.Warning("Veuillez choisir la difficulté.")
-        return gr.update(), gr.update()
+        return gr.update(), gr.update(), gr.update()
 
-    if difficulte == "Autres" and (
-        not autre_precision or autre_precision.strip() == ""
-    ):
+    if difficulte == "Autres" and (not autre_precision or autre_precision.strip() == ""):
         gr.Warning("Veuillez préciser votre niveau.")
-        return gr.update(), gr.update()
+        return gr.update(), gr.update(), gr.update()
 
-    # Si aucune case vide --> page suivante
     return gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
-
 
 def retour_PagePrecedente():
     return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
 
+def formater_html_question(num, enonce):
+    return f"""
+    <div class="bandeau-question">
+        <div class="num-q">Question {num} -</div>
+        <div class="texte-q">{enonce}</div>
+    </div>
+    """
 
-def generer_QCM(matiere, upload_doc, difficulte, autre_precision, typeQuiz):
-    gr.Info(f"QCM généré pour le sujet : {matiere}, difficulté : {difficulte}, type : {typeQuiz}")
-    return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
+def formater_choix(options_texte):
+    lettres = ["A", "B", "C", "D"]
+    return [f"{lettres[i]}. {opt}" for i, opt in enumerate(options_texte)]
 
+def initialiser_quiz():
+    q = MOCK_COURS[0]
+    html_q = formater_html_question(1, q["question"])
+    choix = formater_choix(q["options"])
+    return (
+        gr.update(visible=False),  # page_1 (accueil)
+        gr.update(visible=False),  # page_2 (choix du type de QCM)
+        gr.update(visible=True),   # page_3 (QCM)
+        0,                         # idx_question_state
+        0,                         # score_state
+        html_q,                    # zone_question
+        gr.update(choices=choix, value=None, visible=True),
+        gr.update(value="Valider mon choix", visible=True),
+        gr.update(visible=False),  # zone_resultat_final
+    )
 
+def etape_suivante_quiz(idx_actuel, score_actuel, reponse_choisie):
+    if not reponse_choisie:
+        gr.Warning("Veuillez sélectionner une réponse !")
+        return (
+            idx_actuel,
+            score_actuel,
+            gr.update(),
+            gr.update(),
+            gr.update(),
+            gr.update(),
+        )
 
+    # Nettoyage du préfixe 'A. ', 'B. ', etc. pour la comparaison
+    texte_choisi = (
+        reponse_choisie.split(". ", 1)[1]
+        if ". " in reponse_choisie
+        else reponse_choisie
+    )
 
+    q_actuelle = MOCK_COURS[idx_actuel]
+    bonne_rep = q_actuelle["bonne_reponse"]
+    nouveau_score = score_actuel + (1 if texte_choisi == bonne_rep else 0)
+
+    prochain_idx = idx_actuel + 1
+
+    if prochain_idx < len(MOCK_COURS):
+        suivante = MOCK_COURS[prochain_idx]
+        html_suivante = formater_html_question(
+            prochain_idx + 1, suivante["question"]
+        )
+        nouveaux_choix = formater_choix(suivante["options"])
+        return (
+            prochain_idx,
+            nouveau_score,
+            html_suivante,
+            gr.update(choices=nouveaux_choix, value=None, visible=True),
+            gr.update(value="Valider mon choix", visible=True),
+            gr.update(visible=False),
+        )
+
+    # Fin du QCM
+    bilan_html = f"""
+    <div style="text-align: center; padding: 40px;">
+        <h2>Quiz terminé !</h2>
+        <p style="font-size: 1.4rem; font-weight: 600;">
+            Votre score : {nouveau_score} / {len(MOCK_COURS)}
+        </p>
+    </div>
+    """
+    return (
+        prochain_idx,
+        nouveau_score,
+        "",
+        gr.update(visible=False),
+        gr.update(visible=False),
+        gr.update(value=bilan_html, visible=True),
+    )
 
 ######################
 ## Interface Gradio ##
 ######################
-
-## Zone du Texte général du haut
 with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
     gr.Markdown(
         """
@@ -158,11 +371,8 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
         """
     )
 
-    # ==========================================
-    # PAGE 1 : Formulaire
-    # ==========================================
+    # PAGE 1
     with gr.Column(visible=True) as page_1:
-        ## Zone de saisie de la matière
         with gr.Row():
             with gr.Column(scale=2):
                 gr.Markdown(
@@ -179,34 +389,22 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
                     elem_classes=["zone-matiere"],
                 )
 
-        ## Zone de dépôt de fichier    
         upload_doc = gr.File(
             show_label=False,
             file_types=[".md", ".txt", ".pdf", ".docx"],
-            elem_classes=["upload_doc"],
+            elem_classes=["upload_docSujet"],
         )
 
         gr.HTML("<br>")
 
-
-        ## Menu déroulant pour choisir le niveau des exercices
         difficulteContent = gr.Dropdown(
             show_label=False,
             value="--Choisir la difficulté--",
             interactive=True,
-            choices=[
-                "--Choisir la difficulté--",
-                "BUT",
-                "Licence",
-                "Prépa",
-                "Master",
-                "BTS",
-                "Autres",
-            ],
+            choices=["--Choisir la difficulté--", "BUT", "Licence", "Prépa", "Master", "BTS", "Autres"],
             elem_classes=["zone-matiere"],
         )
 
-        # Zone de texte masqué sauf quand "Autres" selectionné
         autre_precision = gr.Textbox(
             placeholder="Précisez votre niveau...",
             visible=False,
@@ -216,78 +414,54 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
             elem_classes=["zone-matiere"],
         )
 
-        # Permet de rendre invisible la zone "Autre" quand l'utilisateur choisit une autre option que "Autres"
         difficulteContent.change(
             fn=choixDifficulte,
             inputs=[difficulteContent],
             outputs=[autre_precision],
         )
 
-
-
         bouton_suivante = gr.Button(
             "Passer à l'étape suivante",
             elem_classes=["ButtonSuivante"],
         )
 
-    # ==========================================
-    # PAGE 2 : Quiz / Validation
-    # ==========================================
+    # PAGE 2
     with gr.Column(visible=False) as page_2:
-        gr.Markdown(
-            """
-            <h2 style="text-align: center;">Comment souhaitez vous réviser ?</h2>
-            """
-        )
+        gr.Markdown("<h2 style='text-align: center;'>Comment souhaitez vous réviser ?</h2>")
 
         typeQuiz = gr.Radio(
-            choices=[
-                "Questions de cours",
-                "Exercices",
-                "Questions de cours & Exercices",
-            ],
+            choices=["Questions de cours", "Exercices", "Questions de cours & Exercices"],
             show_label=False,
-            value="Exercices",  # Remplace "QCM" par "Exercices"
+            value="Questions de cours",
             interactive=True,
             elem_classes=["select-mode"],
         )
 
-        bouton_generer = gr.Button(
-            "Générer mon QCM",
-            elem_classes=["btn-generer"],
-        )
+        gr.HTML("<div style='height: 1.5rem;'></div>")
 
-        bouton_retour_p2 = gr.Button(
-            "Retour",
-            elem_classes=["ButtonSuivante"],
-        )
+        bouton_generer = gr.Button("Générer mon QCM", elem_classes=["btn-generer"])
 
+        gr.HTML("<div style='height: 1rem;'></div>")
 
+        bouton_retour_p2 = gr.Button("Retour", elem_classes=["ButtonSuivante"])
 
-    # ==========================================
-    # PAGE 3 : QCM
-    # ==========================================
+    # PAGE 3
     with gr.Column(visible=False) as page_3:
-        gr.Markdown(
-            """
-            <h2 style="text-align: center;">Votre QCM est prêt !</h2>
-            """
-        )
+        idx_question_state = gr.State(0)
+        score_state = gr.State(0)
 
-        gr.Markdown(
-            """
-            <p style="text-align: center; font-size: 120%; color: gray;">
-                Vous pouvez maintenant télécharger votre QCM ou le réviser directement sur la plateforme.
-            </p>
-            """
+        btn_quitter = gr.Button("← Quitter", elem_classes=["btn-quitter"])
+        zone_question = gr.HTML()
+        options_qcm = gr.Radio(
+            choices=[],
+            show_label=False,
+            interactive=True,
+            elem_classes=["qcm-options"],
         )
+        btn_valider_reponse = gr.Button("Valider mon choix", elem_classes=["btn-valider"])
+        zone_resultat_final = gr.Markdown(visible=False)
 
-        bouton_retour_p3 = gr.Button(
-            "Retour",
-            elem_classes=["ButtonSuivante"],
-        )
-
-## Évènement de navigations des boutons
+    # Navigation et événements
     bouton_suivante.click(
         fn=lancer_ChangementPage,
         inputs=[matiereContent, upload_doc, difficulteContent, autre_precision],
@@ -300,24 +474,41 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
         outputs=[page_1, page_2, page_3],
     )
 
-    bouton_retour_p3.click(
+    btn_quitter.click(
         fn=retour_PagePrecedente,
         inputs=[],
         outputs=[page_1, page_2, page_3],
     )
 
     bouton_generer.click(
-        fn=generer_QCM,
-        inputs=[matiereContent, upload_doc, difficulteContent, autre_precision, typeQuiz],
-        outputs=[page_1, page_2, page_3],
+        fn=initialiser_quiz,
+        inputs=[],
+        outputs=[
+            page_1,
+            page_2,
+            page_3,
+            idx_question_state,
+            score_state,
+            zone_question,
+            options_qcm,
+            btn_valider_reponse,
+            zone_resultat_final,
+        ],
     )
 
+    btn_valider_reponse.click(
+        fn=etape_suivante_quiz,
+        inputs=[idx_question_state, score_state, options_qcm],
+        outputs=[
+            idx_question_state,
+            score_state,
+            zone_question,
+            options_qcm,
+            btn_valider_reponse,
+            zone_resultat_final,
+        ],
+    )
 
-
-
-###########################
-## Lancement Application ##
-###########################
 if __name__ == "__main__":
     demo.queue(default_concurrency_limit=3)
     demo.launch(
