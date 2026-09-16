@@ -1,5 +1,5 @@
 import gradio as gr
-from TemplateQuestionsCours import get_prompt_questions_cours
+from TemplateQuiz import get_template_quiz
 
 ####################
 ## STYLES GÉNÉRAL ##
@@ -15,11 +15,7 @@ theme_global = gr.themes.Soft(
 )
 
 custom_css = """
-/* ==========================================================================
-   1. STRUCTURE GÉNÉRALE & FORMULAIRES (PAGE 1)
-   ========================================================================== */
-
-/* Champs Sujet et Niveau */
+/* PAGE 1 : Page d'accueil */
 .zone-matiere {
     width: 60% !important;
     margin-left: 25% !important;
@@ -27,7 +23,6 @@ custom_css = """
     box-shadow: none !important;
 }
 
-/* Bordure noire sur la zone texte et le menu déroulant */
 .zone-matiere textarea,
 .zone-matiere input,
 .zone-matiere > .block,
@@ -36,12 +31,10 @@ custom_css = """
     background-color: #ffffff !important;
 }
 
-/* Priorité d'affichage pour la liste déroulante */
 .zone-matiere ul {
     z-index: 9999 !important;
 }
 
-/* Zone d'import de document avec bordure noire */
 .upload_docSujet {
     width: 60% !important;
     margin-left: 25% !important;
@@ -56,14 +49,12 @@ custom_css = """
     background-color: #ffffff !important;
 }
 
-/* Transparence des conteneurs sans casser les bordures intérieures */
 .gradio-container .form {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
 }
 
-/* Boutons de navigation verts ("Passer à l'étape suivante", "Retour") */
 .ButtonSuivante {
     width: 20% !important;
     margin-left: 40% !important;
@@ -71,10 +62,7 @@ custom_css = """
     color: white !important;
 }
 
-/* ==========================================================================
-   2. CHOIX DU MODE DE RÉVISION (PAGE 2)
-   ========================================================================== */
-
+/* PAGE 2 : Choix du mode de révision */
 .select-mode .wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -82,7 +70,6 @@ custom_css = """
     gap: 16px !important;
 }
 
-/* Rectangle gris clair avec bordure noire */
 .select-mode label {
     width: 50% !important;
     min-height: 55px !important;
@@ -106,13 +93,11 @@ custom_css = """
     display: none !important;
 }
 
-/* Sélection active : fond jaune clair */
 .select-mode label:has(input:checked),
 .select-mode label.selected {
     background-color: #e8f0a0 !important;
 }
 
-/* Bouton vert "Générer mon QCM" */
 .btn-generer {
     width: 50% !important;
     margin-left: 25% !important;
@@ -125,11 +110,7 @@ custom_css = """
     font-weight: 600 !important;
 }
 
-/* ==========================================================================
-   3. QUESTIONNAIRE QCM (PAGE 3)
-   ========================================================================== */
-
-/* Lien retour "← Quitter" */
+/* PAGE 3 : Questionnaire QCM & Exercices */
 .btn-quitter {
     background: transparent !important;
     border: none !important;
@@ -144,7 +125,6 @@ custom_css = """
     margin-bottom: 10px !important;
 }
 
-/* En-tête bleu de la question */
 .bandeau-question {
     width: 50% !important;
     margin-left: 25% !important;
@@ -165,12 +145,12 @@ custom_css = """
 
 .bandeau-question .texte-q {
     color: #000000;
-    font-size: 1.35rem;
+    font-size: 1.25rem;
     font-weight: 600;
     margin: 0;
+    white-space: pre-line;
 }
 
-/* Options de réponse */
 .qcm-options .wrap {
     display: flex !important;
     flex-direction: column !important;
@@ -210,7 +190,6 @@ custom_css = """
     border: 2px solid #1e3a8a !important;
 }
 
-/* Bouton vert "Valider mon choix" */
 .btn-valider {
     width: 50% !important;
     margin-left: 25% !important;
@@ -223,25 +202,21 @@ custom_css = """
     font-weight: 600 !important;
     margin-top: 25px !important;
 }
-"""
 
-#############################
-## MOCK EN ATTENTE DU LLM  ##
-#############################
-MOCK_COURS = [
-    {
-        "id": 1,
-        "question": "Quelle est la formule du déterminant (delta) ?",
-        "options": ["(a+b)(a-b)", "b² - 4ac", "a² - b²", "a² + b²"],
-        "bonne_reponse": "b² - 4ac",
-    },
-    {
-        "id": 2,
-        "question": "Quelle est la dérivée de f(x) = x² ?",
-        "options": ["2x", "x", "2", "x² / 2"],
-        "bonne_reponse": "2x",
-    },
-]
+.champ-redaction {
+    width: 50% !important;
+    margin-left: 25% !important;
+    background: transparent !important;
+}
+
+.champ-redaction textarea {
+    border: 1.5px solid #000000 !important;
+    border-radius: 4px !important;
+    background-color: #ffffff !important;
+    font-size: 1.05rem !important;
+    padding: 12px !important;
+}
+"""
 
 #######################
 ## Fonctions BackEnd ##
@@ -285,68 +260,82 @@ def formater_choix(options_texte):
     lettres = ["A", "B", "C", "D"]
     return [f"{lettres[i]}. {opt}" for i, opt in enumerate(options_texte)]
 
-def initialiser_quiz():
-    q = MOCK_COURS[0]
-    html_q = formater_html_question(1, q["question"])
-    choix = formater_choix(q["options"])
+def preparer_vue_question(q, num):
+    html_q = formater_html_question(num, q["question"])
+
+    if q["type"] == "qcm":
+        choix = formater_choix(q["options"])
+        return (
+            html_q,
+            gr.update(choices=choix, value=None, visible=True),
+            gr.update(value="", visible=False),
+        )
+    else:
+        nb_lignes = q.get("lignes", 4)
+        ph = q.get("placeholder", "Écrivez votre réponse ici...")
+        return (
+            html_q,
+            gr.update(choices=[], value=None, visible=False),
+            gr.update(value="", placeholder=ph, lines=nb_lignes, visible=True),
+        )
+
+def initialiser_quiz(type_revision):
+    questions = get_template_quiz(type_revision)
+
+    premiere_q = questions[0]
+    html_q, maj_qcm, maj_redaction = preparer_vue_question(premiere_q, 1)
+
     return (
-        gr.update(visible=False),  # page_1 (accueil)
-        gr.update(visible=False),  # page_2 (choix du type de QCM)
-        gr.update(visible=True),   # page_3 (QCM)
+        gr.update(visible=False),  # page_1
+        gr.update(visible=False),  # page_2
+        gr.update(visible=True),   # page_3
+        questions,                 # liste_questions_state
         0,                         # idx_question_state
         0,                         # score_state
         html_q,                    # zone_question
-        gr.update(choices=choix, value=None, visible=True),
+        maj_qcm,                   # options_qcm
+        maj_redaction,             # zone_redaction
         gr.update(value="Valider mon choix", visible=True),
         gr.update(visible=False),  # zone_resultat_final
     )
 
-def etape_suivante_quiz(idx_actuel, score_actuel, reponse_choisie):
-    if not reponse_choisie:
-        gr.Warning("Veuillez sélectionner une réponse !")
-        return (
-            idx_actuel,
-            score_actuel,
-            gr.update(),
-            gr.update(),
-            gr.update(),
-            gr.update(),
-        )
+def etape_suivante_quiz(liste_questions, idx_actuel, score_actuel, rep_qcm, rep_redaction):
+    q_actuelle = liste_questions[idx_actuel]
+    est_qcm = q_actuelle["type"] == "qcm"
 
-    # Nettoyage du préfixe 'A. ', 'B. ', etc. pour la comparaison
-    texte_choisi = (
-        reponse_choisie.split(". ", 1)[1]
-        if ". " in reponse_choisie
-        else reponse_choisie
-    )
+    rep = rep_qcm if est_qcm else rep_redaction
+    if not rep or str(rep).strip() == "":
+        gr.Warning("Veuillez renseigner une réponse avant de continuer !")
+        return idx_actuel, score_actuel, gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
 
-    q_actuelle = MOCK_COURS[idx_actuel]
-    bonne_rep = q_actuelle["bonne_reponse"]
-    nouveau_score = score_actuel + (1 if texte_choisi == bonne_rep else 0)
+    nouveau_score = score_actuel
+    if est_qcm:
+        texte_choisi = rep_qcm.split(". ", 1)[1] if ". " in rep_qcm else rep_qcm
+        if texte_choisi == q_actuelle["bonne_reponse"]:
+            nouveau_score += 1
+    else:
+        nouveau_score += 1
 
     prochain_idx = idx_actuel + 1
 
-    if prochain_idx < len(MOCK_COURS):
-        suivante = MOCK_COURS[prochain_idx]
-        html_suivante = formater_html_question(
-            prochain_idx + 1, suivante["question"]
-        )
-        nouveaux_choix = formater_choix(suivante["options"])
+    if prochain_idx < len(liste_questions):
+        suivante = liste_questions[prochain_idx]
+        html_s, maj_qcm, maj_redaction = preparer_vue_question(suivante, prochain_idx + 1)
         return (
             prochain_idx,
             nouveau_score,
-            html_suivante,
-            gr.update(choices=nouveaux_choix, value=None, visible=True),
+            html_s,
+            maj_qcm,
+            maj_redaction,
             gr.update(value="Valider mon choix", visible=True),
             gr.update(visible=False),
         )
 
-    # Fin du QCM
-    bilan_html = f"""
+    bilan = f"""
     <div style="text-align: center; padding: 40px;">
-        <h2>Quiz terminé !</h2>
+        <h2>Session terminée !</h2>
         <p style="font-size: 1.4rem; font-weight: 600;">
-            Votre score : {nouveau_score} / {len(MOCK_COURS)}
+            Score obtenu : {nouveau_score} / {len(liste_questions)}
         </p>
     </div>
     """
@@ -356,7 +345,8 @@ def etape_suivante_quiz(idx_actuel, score_actuel, reponse_choisie):
         "",
         gr.update(visible=False),
         gr.update(visible=False),
-        gr.update(value=bilan_html, visible=True),
+        gr.update(visible=False),
+        gr.update(value=bilan, visible=True),
     )
 
 ######################
@@ -371,7 +361,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
         """
     )
 
-    # PAGE 1
+    # PAGE 1 : Formulaire
     with gr.Column(visible=True) as page_1:
         with gr.Row():
             with gr.Column(scale=2):
@@ -425,7 +415,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
             elem_classes=["ButtonSuivante"],
         )
 
-    # PAGE 2
+    # PAGE 2 : Choix de révision
     with gr.Column(visible=False) as page_2:
         gr.Markdown("<h2 style='text-align: center;'>Comment souhaitez vous réviser ?</h2>")
 
@@ -445,23 +435,39 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
 
         bouton_retour_p2 = gr.Button("Retour", elem_classes=["ButtonSuivante"])
 
-    # PAGE 3
+    # PAGE 3 : Questions une par une
     with gr.Column(visible=False) as page_3:
+        liste_questions_state = gr.State([])
         idx_question_state = gr.State(0)
         score_state = gr.State(0)
 
         btn_quitter = gr.Button("← Quitter", elem_classes=["btn-quitter"])
         zone_question = gr.HTML()
+
         options_qcm = gr.Radio(
             choices=[],
             show_label=False,
             interactive=True,
+            visible=False,
             elem_classes=["qcm-options"],
         )
-        btn_valider_reponse = gr.Button("Valider mon choix", elem_classes=["btn-valider"])
+
+        zone_redaction = gr.Textbox(
+            show_label=False,
+            placeholder="Écrivez votre réponse ici...",
+            lines=3,
+            visible=False,
+            elem_classes=["champ-redaction"],
+        )
+
+        btn_valider_reponse = gr.Button(
+            "Valider mon choix",
+            elem_classes=["btn-valider"],
+        )
         zone_resultat_final = gr.Markdown(visible=False)
 
-    # Navigation et événements
+    
+    # Événements et Navigation
     bouton_suivante.click(
         fn=lancer_ChangementPage,
         inputs=[matiereContent, upload_doc, difficulteContent, autre_precision],
@@ -482,15 +488,17 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
 
     bouton_generer.click(
         fn=initialiser_quiz,
-        inputs=[],
+        inputs=[typeQuiz],
         outputs=[
             page_1,
             page_2,
             page_3,
+            liste_questions_state,
             idx_question_state,
             score_state,
             zone_question,
             options_qcm,
+            zone_redaction,
             btn_valider_reponse,
             zone_resultat_final,
         ],
@@ -498,12 +506,19 @@ with gr.Blocks(title="11_Doc2Quiz", theme=theme_global, css=custom_css) as demo:
 
     btn_valider_reponse.click(
         fn=etape_suivante_quiz,
-        inputs=[idx_question_state, score_state, options_qcm],
+        inputs=[
+            liste_questions_state,
+            idx_question_state,
+            score_state,
+            options_qcm,
+            zone_redaction,
+        ],
         outputs=[
             idx_question_state,
             score_state,
             zone_question,
             options_qcm,
+            zone_redaction,
             btn_valider_reponse,
             zone_resultat_final,
         ],
