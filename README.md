@@ -4,6 +4,7 @@ un outil pédagogique permettant aux enseignants de transformer instantanément 
 **Commande d'installation**
 
 - pip install gradio
+- pip install --upgrade pymupdf
 
 **Commande de lancement**
 

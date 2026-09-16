@@ -13,20 +13,19 @@ En tant qu'enseignant, je veux **uploader un support PDF** afin d'en extraire le
 - Extraction du texte brut et de la structure (titres, sous-titres) via une lib type `pdfplumber`/`PyMuPDF`.
 - Les PDF scannés (image pure) sont détectés et signalés par un message explicite ("PDF non exploitable, scan détecté, veuillez utiliser un OCR au préalable"), sans plantage de l'application.
 - Le texte extrait est stocké, associé au document et horodaté.
-- Testé sur au moins 3 PDF réels de matières différentes (ex. maths, lettres, sciences) avec validation manuelle de la qualité d'extraction.
+- Testé avec validation manuelle de la qualité d'extraction.
 
 **Sous-tâches techniques :**
 
-1. Choix de la lib : `PyMuPDF` (rapide, bonne mise en page) vs `pdfplumber` (meilleur sur les tableaux) — trancher via un test rapide sur des supports réels.
-2. Extraction page par page en conservant l'ordre de lecture (attention aux PDF en 2 colonnes qui peuvent mélanger l'ordre si extraction naïve).
-3. Détection heuristique des titres (taille de police, gras, position) pour préparer la segmentation (US-07).
-4. Détection PDF scanné : ratio texte extrait / nombre de pages proche de zéro alors que le fichier n'est pas vide → déclenche le message d'erreur dédié.
-5. Gestion des cas limites : PDF protégé par mot de passe, PDF corrompu, PDF sans texte.
-6. Stockage du texte brut + métadonnées (nombre de pages, taille fichier, date d'upload).
+1. Extraction page par page en conservant l'ordre de lecture.
+2. Détection heuristique des titres (taille de police, gras, position) pour préparer la segmentation (US-07).
+3. Détection PDF scanné : ratio texte extrait / nombre de pages proche de zéro alors que le fichier n'est pas vide → déclenche le message d'erreur dédié.
+4. Gestion des cas limites : PDF corrompu, PDF sans texte.
+5. Stockage du texte brut + métadonnées (nombre de pages, taille fichier, date d'upload).
 
 **Cas à tester en particulier :** PDF multi-colonnes, PDF avec formules mathématiques (Unicode vs image), PDF volumineux (>50 pages, test de perf).
 
-**Definition of Done :** testé sur 3 PDF réels de matières différentes + tous les cas d'échec renvoient un message clair (pas de 500 ni de plantage silencieux).
+**Definition of Done :** testé sur PDF réels + tous les cas d'échec renvoient un message clair (pas de 500 ni de plantage silencieux).
 
 ---
 
