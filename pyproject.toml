@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "doc2quiz"
+version = "0.1.0"
+description = "Application SAE Doc2Quiz"
+authors = ["Justin Thomas Bonnier Gabin Cuvelier Armand Thenawha Valentine"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+psycopg2-binary = "^2.9.9"
+ollama = "^0.3.0"
+pytest = "^8.0.0"
+gradio = "^6.26.0"
+pymupdf = "^1.28.2"
+mistune = "3.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

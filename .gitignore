@@ -24,3 +24,5 @@ htmlcov/
 # Système
 .DS_Store
 Thumbs.db
+src/Doc2Quiz/config.py
+__pycache__/
