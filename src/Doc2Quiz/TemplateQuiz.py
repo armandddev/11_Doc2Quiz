@@ -7,7 +7,7 @@ Il reçoit le type de révision de la part de "ui_gradio" et renvoie le modèle 
 ## Questions de cours ##
 ########################
 # pour les QCM ont a utilisation de QCM et réponse libre.
-GABARIT_COURS = [
+MOCK = [
     {
         "id": 1,
         "type": "qcm",
@@ -99,7 +99,7 @@ def get_template_quiz(type_revision: str) -> list[dict]:
     Reçoit le type de révision choisi par l'utilisateur et renvoie le modèle que l'utilisateur veut pour réviser
     '''
     if type_revision == "Questions de cours":
-        return GABARIT_COURS
+        return MOCK
     elif type_revision == "Exercices":
         return GABARIT_EXERCICES
     elif type_revision in [
@@ -108,4 +108,4 @@ def get_template_quiz(type_revision: str) -> list[dict]:
     ]:
         return GABARIT_MIXTE
     else:
-        return GABARIT_COURS
+        return MOCK
