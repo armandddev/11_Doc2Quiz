@@ -1,2 +1,28 @@
+# Environnement Python
+.venv/
+venv/
+env/
+ENV/
+
+# Variables et secrets locaux
+.env
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Tests et outils
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# Système
+.DS_Store
+Thumbs.db
 src/Doc2Quiz/config.py
 __pycache__/
