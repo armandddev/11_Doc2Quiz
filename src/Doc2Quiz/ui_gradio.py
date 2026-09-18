@@ -41,12 +41,12 @@ custom_css = """
     width: 60% !important;
     margin-left: 15% !important;
     background: transparent !important;
+    border: 2px dashed #000000 !important;
 }
 
 .document_uploadSujet > .block,
 .document_uploadSujet .file-preview-holder,
 .document_uploadSujet [data-testid="file-upload"] {
-    border: 1px solid #000000 !important;
     border-radius: 4px !important;
     background-color: #ffffff !important;
 }
@@ -59,7 +59,16 @@ custom_css = """
 
 .ButtonSuivante {
     width: 20% !important;
-    margin-left: 40% !important;
+    align-items: center !important;
+    margin-left: 34% !important;
+    background-color: green !important;
+    color: white !important;
+}
+
+.ButtonRetour {
+    width: 20% !important;
+    align-items: center !important;
+    margin-left: 31% !important;
     background-color: green !important;
     color: white !important;
 }
@@ -68,7 +77,7 @@ custom_css = """
 .select-mode .wrap {
     display: flex !important;
     flex-direction: column !important;
-    align-items: center !important;
+    padding-left: 20% !important;
     gap: 16px !important;
 }
 
@@ -156,7 +165,7 @@ custom_css = """
 .qcm-options .wrap {
     display: flex !important;
     flex-direction: column !important;
-    align-items: center !important;
+    padding-left: 20% !important;
     gap: 16px !important;
 }
 
@@ -407,11 +416,7 @@ def chooseDifficulte(choix):
         return gr.update(visible=True)
     return gr.update(visible=False, value="")
 
-def navigate_to_page_2(matiere, document_upload, difficulte, custom_level_input):
-    if not matiere or matiere.strip() == "":
-        gr.Warning("Veuillez entrer le thème de votre matière.")
-        return gr.update(), gr.update(), gr.update()
-
+def navigate_to_page_2(document_upload, difficulte, custom_level_input):
     if document_upload is None:
         gr.Warning("Veuillez déposer un fichier.")
         return gr.update(), gr.update(), gr.update()
@@ -513,7 +518,7 @@ def submit_and_next_question(liste_questions, idx_actuel, score_actuel, rep_qcm,
         )
 
     bilan = f"""
-    <div style="text-align: center; padding: 40px;">
+    <div style="padding-left: 31%;">
         <h2>Session terminée !</h2>
         <p style="font-size: 1.4rem; font-weight: 600;">
             Score obtenu : {nouveau_score} / {len(liste_questions)}
@@ -597,22 +602,6 @@ with gr.Blocks(title="11_Doc2Quiz", theme=global_theme, css=custom_css) as demo:
 
     # PAGE 1 : Formulaire
     with gr.Column(visible=True) as page_1:
-        with gr.Row():
-            with gr.Column(scale=2):
-                gr.Markdown(
-                    """
-                    <p style="margin-left: 26%; padding: 0; font-size: 120%; color: gray;">
-                        Sujet
-                    </p>
-                    """
-                )
-                subject_input = gr.Textbox(
-                    show_label=False,
-                    placeholder="Entrer le thème de votre matière (ex: Histoire, Français, Mathématiques, etc.)",
-                    lines=1,
-                    elem_classes=["zone-matiere"],
-                )
-
         document_upload = gr.File(
             show_label=False,
             file_types=[".md", ".txt", ".pdf", ".docx"],
@@ -651,7 +640,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=global_theme, css=custom_css) as demo:
 
     # PAGE 2 : Choix de révision
     with gr.Column(visible=False) as page_2:
-        gr.Markdown("<h2 style='text-align: center;'>Comment souhaitez vous réviser ?</h2>")
+        gr.Markdown("<h2 style='padding-left: 23%'>Comment souhaitez vous réviser ?</h2>")
 
         quiz_mode_radio = gr.Radio(
             choices=["Questions de cours", "Exercices", "Questions de cours & Exercices"],
@@ -667,7 +656,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=global_theme, css=custom_css) as demo:
 
         gr.HTML("<div style='height: 1rem;'></div>")
 
-        btn_back_p2 = gr.Button("Retour", elem_classes=["ButtonSuivante"])
+        btn_back_p2 = gr.Button("Retour", elem_classes=["ButtonRetour"])
 
     # PAGE 3 : Questions une par une
     with gr.Column(visible=False) as page_3:
@@ -720,7 +709,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=global_theme, css=custom_css) as demo:
     # Navigation entre les étapes du générateur
     btn_next_step.click(
         fn=navigate_to_page_2,
-        inputs=[subject_input, document_upload, difficulty_dropdown, custom_level_input],
+        inputs=[document_upload, difficulty_dropdown, custom_level_input],
         outputs=[page_1, page_2, page_3],
     )
 
