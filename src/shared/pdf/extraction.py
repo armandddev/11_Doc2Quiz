@@ -2,6 +2,8 @@ import pymupdf
 from datetime import datetime, timezone
 import mistune
 
+from .segmentation import segment_text
+
 def extractFromMd(file_input) -> dict:
     if isinstance(file_input, str):
         with open(file_input, "r", encoding="utf-8") as f:
@@ -16,10 +18,13 @@ def extractFromMd(file_input) -> dict:
     tree = markdown_parser(raw_text)
     titles = extractTitlesFromTree(tree)
     text = extractPlainTextFromTree(tree)
+    sections = segment_text(text, titles)
 
     return {
         "title": titles,
         "text": text.strip(),
+        "sections": sections,
+        "section_notion_links": [],
         "pages": 1,
         "upload_timestamp": datetime.now(timezone.utc).isoformat(),
     }
@@ -73,7 +78,7 @@ def get_node_text(node: dict) -> str:
         text += get_node_text(child)
     return text
 
-def extractFromPdf(file: str) -> str:
+def extractFromPdf(file: str) -> dict:
     # Open file
     try:
         doc = pymupdf.open(file)
@@ -93,12 +98,15 @@ def extractFromPdf(file: str) -> str:
         raise Exception("PDF not exploitable")
     
     doc.close()
+    sections = segment_text(full_text, titles)
     return {
-        "title" : titles,
-        "text" : full_text,
-        "pages" : count_page,
-        "upload_timestamp": datetime.now(timezone.utc).isoformat()
-        }
+        "title": titles,
+        "text": full_text,
+        "sections": sections,
+        "section_notion_links": [],
+        "pages": count_page,
+        "upload_timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
 def extractTitles(doc) -> list:
     titles = []
