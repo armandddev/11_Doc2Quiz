@@ -3,7 +3,7 @@ def extraire_notions(file_path: str) -> list[dict]:
     """Logique pure, pas de Gradio ici."""
     ...
     return [{"nom": "Photosynthèse", "resume": "..."}]
-from shared.pdf import extractFromPdf, extractFromMd
+from shared.document import extractFromPdf, extractFromMd
 
 def process_uploaded_pdf(file) -> str:
     filepath = file.name

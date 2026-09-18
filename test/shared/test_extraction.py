@@ -1,4 +1,4 @@
-from shared.pdf import (
+from shared.document import (
     extractFromPdf,
     extractTitles,
     extractFromMd,
