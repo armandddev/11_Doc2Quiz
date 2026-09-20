@@ -10,6 +10,8 @@ class Section:
     summary: str
     notion_ids: list[str] | None
     pages: list[int]
+    discipline: str = "générique"
+    content_type: str = "théorique"
 
     def to_dict(self) -> dict:
         return asdict(self)

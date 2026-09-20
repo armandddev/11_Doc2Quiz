@@ -112,5 +112,3 @@ def _make_section(index, title, level, text, summary_generator, notion_ids, page
     )
     # Convertion de l'objet en un dictionnaire
     return section.to_dict()
-
-

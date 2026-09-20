@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 import mistune
 
 from .segmentation import segment_text
+from .detection import detection_section_displine
+from .models import Section
+
 
 def extractFromMd(file_input) -> dict:
     if isinstance(file_input, str):
@@ -19,6 +22,7 @@ def extractFromMd(file_input) -> dict:
     titles = extractTitlesFromTree(tree)
     text = extractPlainTextFromTree(tree)
     sections = segment_text(text, titles)
+    sections = _detect_sections(sections)
 
     return {
         "title": titles,
@@ -28,7 +32,8 @@ def extractFromMd(file_input) -> dict:
         "pages": 1,
         "upload_timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    
+
+
 def extractTitlesFromTree(tree: list) -> list:
     titles = []
     for node in tree:
@@ -39,6 +44,7 @@ def extractTitlesFromTree(tree: list) -> list:
                 titles.append({"level": level, "text": clean_title, "page": 1})
     return titles
 
+
 def extractPlainTextFromTree(tree: list) -> str:
     text_parts = []
     for node in tree:
@@ -46,6 +52,7 @@ def extractPlainTextFromTree(tree: list) -> str:
         if node_text:
             text_parts.append(node_text)
     return "\n\n".join(text_parts)
+
 
 def extractTitlesFromMd(md_text: str) -> list:
     titles = []
@@ -67,8 +74,8 @@ def extractTitlesFromMd(md_text: str) -> list:
                         "page": 1,
                     }
                 )
-
     return titles
+
 
 def get_node_text(node: dict) -> str:
     if "raw" in node:
@@ -77,6 +84,7 @@ def get_node_text(node: dict) -> str:
     for child in node.get("children", []):
         text += get_node_text(child)
     return text
+
 
 def extractFromPdf(file: str) -> dict:
     # Open file
@@ -91,14 +99,16 @@ def extractFromPdf(file: str) -> dict:
     for page in doc:
         count_page += 1
         full_text += page.get_text()
-    
+
     # Détection PDF scanné
     if len(full_text.strip()) < 20 or doc.page_count < 1:
         doc.close()
         raise Exception("PDF not exploitable")
-    
+
     doc.close()
     sections = segment_text(full_text, titles)
+    sections = _detect_sections(sections)
+
     return {
         "title": titles,
         "text": full_text,
@@ -107,6 +117,7 @@ def extractFromPdf(file: str) -> dict:
         "pages": count_page,
         "upload_timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
 
 def extractTitles(doc) -> list:
     titles = []
@@ -138,3 +149,16 @@ def extractTitles(doc) -> list:
                 continue
             titles.append({"level": level, "text": text, "page": page_num})
     return titles
+
+
+def _detect_sections(sections: list) -> list:
+    """Détecte la discipline et le content_type pour chaque section."""
+    detected_sections = []
+    for section in sections:
+        try:
+            detected = detection_section_displine(Section(**section))
+            detected_sections.append(detected.to_dict())
+        except Exception:
+            # Si la détection échoue, on garde la section avec les valeurs par défaut
+            detected_sections.append(section)
+    return detected_sections
