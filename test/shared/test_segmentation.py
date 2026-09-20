@@ -1,6 +1,5 @@
 from shared.document.extraction import extractFromPdf
 
-
 def test_pdf_is_segmented():
     document = extractFromPdf("docs/cahier_des_charges.pdf")
 
