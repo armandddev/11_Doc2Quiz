@@ -24,8 +24,9 @@ jobs:
       - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
-          pip install gradio
-          pip install pytest
+          pip install gradio pytest pymupdf mistune pydantic
 
       - name: Lancer les tests
-        run: pytest tests/
+        run: |
+          cd $GITHUB_WORKSPACE
+          PYTHONPATH=src pytest test/ -v
