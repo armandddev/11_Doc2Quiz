@@ -9,43 +9,27 @@ services:
       POSTGRES_PASSWORD: app_secret
       POSTGRES_DB: app_db
     volumes:
-      - pg_data_Doc2Quiz:/var/lib/postgresql/data   # persistance
+      - pg_data_Doc2Quiz:/var/lib/postgresql/data
     ports:
-      - "5432"                                      # (optionnel, uniquement pour debug)
+      - "5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app_user -d app_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # ------- Ollama (common to all subjects) ------
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    ports: ["11434:11434"]
-    volumes:
-      - ollama_data:/data
-
-  # ------- Application (subject-specific) ------
   app:
     build:
       context: .
       dockerfile: docker/Dockerfile
     container_name: sae_Doc2Quiz
-    ports: ["7860:7860"]          # UI exposé sur le poste
-    environment:
-      - OLLAMA_HOST=http://ollama:11434   # ← résolution DNS interne
-      - LLM_MODEL=gemma4:12b               
-      - DB_HOST=pg
-      - DB_PORT=5432
-      - DB_NAME=app_db
-      - DB_USER=app_user
-      - DB_PASSWORD=app_secret
+    ports: ["7860:7860"]
+    env_file:
+      - .env
     volumes:
-      - ./data:/app/data                # persistance des vecteurs, logs…
+      - ./data:/app/data
       - ./src/Doc2Quiz:/app/src/Doc2Quiz
     depends_on:
-      - ollama
       - pg
     deploy:
       resources:
