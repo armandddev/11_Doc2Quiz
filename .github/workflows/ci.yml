@@ -12,6 +12,30 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    services:
+      pg:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_db
+          POSTGRES_USER: app_user
+          POSTGRES_PASSWORD: app_secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: app_db
+      DB_USER: app_user
+      DB_PASSWORD: app_secret
+      OLLAMA_BASE_URL: http://localhost:11434
+      LLM_MODEL: gemma4:12b
+
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
@@ -24,9 +48,12 @@ jobs:
       - name: Installer les dépendances
         run: |
           python -m pip install --upgrade pip
-          pip install gradio pytest pymupdf mistune pydantic
+          pip install -r requirements.txt
+
+      - name: Initialiser la base de données
+        run: psql -h localhost -U app_user -d app_db -f sql/init.sql
+        env:
+          PGPASSWORD: app_secret
 
       - name: Lancer les tests
-        run: |
-          cd $GITHUB_WORKSPACE
-          PYTHONPATH=src pytest test/ -v
+        run: PYTHONPATH=src pytest test/ -v
