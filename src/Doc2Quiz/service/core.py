@@ -1,4 +1,3 @@
-# service/core.py
 def extraire_notions(file_path: str) -> list[dict]:
     return [{"nom": "Photosynthèse", "resume": "..."}]
 from shared.document import extractFromPdf, extractFromMd

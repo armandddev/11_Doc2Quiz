@@ -1,0 +1,6 @@
+psycopg[binary]>=3.2
+bcrypt>=4.2
+pytest>=8.0.0
+gradio>=6.26.0
+pymupdf>=1.28.2
+mistune==3.0.2
