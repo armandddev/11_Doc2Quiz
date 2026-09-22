@@ -11,6 +11,7 @@ class Role(str, Enum):
 class UserContext:
     user_id: int
     email: str
+    name: str
     role: Role = Role.TEACHER
 
 

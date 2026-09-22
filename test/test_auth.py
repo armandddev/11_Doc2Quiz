@@ -15,6 +15,7 @@ def db_user(hashed_password):
     return {
         "id": 1,
         "email": "prof@iut.fr",
+        "name": "Jean Dupont",
         "password_hash": hashed_password,
         "role": "teacher",
     }
@@ -30,6 +31,7 @@ def test_sign_in_succes(db_user):
 
         assert isinstance(user, UserContext)
         assert user.email == "prof@iut.fr"
+        assert user.name == "Jean Dupont"
         assert user.role == Role.TEACHER
 
 
@@ -54,9 +56,8 @@ def test_sign_in_mauvais_mot_de_passe(db_user):
         with pytest.raises(ValueError, match="Email ou mot de passe incorrect."):
             sign_in("prof@iut.fr", "mauvaismdp")
 
-
 def test_sign_up_succes():
-    new_user = {"id": 2, "email": "nouveau@iut.fr", "role": "teacher"}
+    new_user = {"id": 2, "email": "nouveau@iut.fr", "name": "Marie Martin", "role": "teacher"}
 
     with patch("Doc2Quiz.auth.get_cursor") as mock_cursor:
         cur = MagicMock()
@@ -64,26 +65,32 @@ def test_sign_up_succes():
         mock_cursor.return_value.__enter__ = lambda s: cur
         mock_cursor.return_value.__exit__ = MagicMock(return_value=False)
 
-        user = sign_up("nouveau@iut.fr", "motdepasse123")
+        user = sign_up("nouveau@iut.fr", "motdepasse123", "Marie Martin")
 
         assert isinstance(user, UserContext)
         assert user.email == "nouveau@iut.fr"
+        assert user.name == "Marie Martin"
         assert user.role == Role.TEACHER
 
 
+def test_sign_up_nom_vide():
+    with pytest.raises(ValueError, match="Email, nom et mot de passe obligatoires."):
+        sign_up("prof@iut.fr", "motdepasse123", "")
+
+
 def test_sign_up_email_vide():
-    with pytest.raises(ValueError, match="Email et mot de passe obligatoires."):
-        sign_up("", "motdepasse123")
+    with pytest.raises(ValueError, match="Email, nom et mot de passe obligatoires."):
+        sign_up("", "motdepasse123", "Jean Dupont")
 
 
 def test_sign_up_password_vide():
-    with pytest.raises(ValueError, match="Email et mot de passe obligatoires."):
-        sign_up("prof@iut.fr", "")
+    with pytest.raises(ValueError, match="Email, nom et mot de passe obligatoires."):
+        sign_up("prof@iut.fr", "", "Jean Dupont")
 
 
 def test_sign_up_password_trop_court():
     with pytest.raises(ValueError, match="au moins 8 caractères"):
-        sign_up("prof@iut.fr", "court")
+        sign_up("prof@iut.fr", "court", "Jean Dupont")
 
 
 def test_sign_up_email_deja_utilise():
@@ -94,4 +101,4 @@ def test_sign_up_email_deja_utilise():
         mock_cursor.return_value.__exit__ = MagicMock(return_value=False)
 
         with pytest.raises(ValueError, match="déjà utilisé"):
-            sign_up("prof@iut.fr", "motdepasse123")
+            sign_up("prof@iut.fr", "motdepasse123", "Jean Dupont")

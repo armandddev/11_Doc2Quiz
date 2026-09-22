@@ -1,9 +1,10 @@
 CREATE TABLE users (
-    id          SERIAL PRIMARY KEY,
-    email       VARCHAR(255) UNIQUE NOT NULL,
+    id            SERIAL PRIMARY KEY,
+    email         VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    created_at  TIMESTAMP DEFAULT NOW()
-    role TEXT NOT NULL DEFAULT 'teacher' CHECK (role IN ('teacher', 'student'))
+    name          VARCHAR(255) NOT NULL,
+    role          TEXT NOT NULL DEFAULT 'teacher' CHECK (role IN ('teacher', 'student')),
+    created_at    TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE documents (

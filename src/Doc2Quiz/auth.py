@@ -5,7 +5,7 @@ import bcrypt
 def sign_in(email: str, password: str) -> UserContext:
     with get_cursor() as cur:
         cur.execute(
-            "SELECT id, email, password_hash, role FROM users WHERE email = %s",
+            "SELECT id, email, name, password_hash, role FROM users WHERE email = %s",
             (email,),
         )
         row = cur.fetchone()
@@ -19,13 +19,13 @@ def sign_in(email: str, password: str) -> UserContext:
     return UserContext(
         user_id=row["id"],
         email=row["email"],
+        name=row["name"],
         role=Role(row["role"]),
     )
 
-
-def sign_up(email: str, password: str, role: Role = Role.TEACHER) -> UserContext:
-    if not email or not password:
-        raise ValueError("Email et mot de passe obligatoires.")
+def sign_up(email: str, password: str, name: str, role: Role = Role.TEACHER) -> UserContext:
+    if not email or not password or not name:
+        raise ValueError("Email, nom et mot de passe obligatoires.")
 
     if len(password) < 8:
         raise ValueError("Le mot de passe doit contenir au moins 8 caractères.")
@@ -36,11 +36,11 @@ def sign_up(email: str, password: str, role: Role = Role.TEACHER) -> UserContext
         with get_cursor(commit=True) as cur:
             cur.execute(
                 """
-                INSERT INTO users (email, password_hash, role)
-                VALUES (%s, %s, %s)
-                RETURNING id, email, role
+                INSERT INTO users (email, password_hash, name, role)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, email, name, role
                 """,
-                (email, password_hash, role.value),
+                (email, password_hash, name, role.value),
             )
             row = cur.fetchone()
     except Exception:
@@ -49,5 +49,6 @@ def sign_up(email: str, password: str, role: Role = Role.TEACHER) -> UserContext
     return UserContext(
         user_id=row["id"],
         email=row["email"],
+        name=row["name"],
         role=Role(row["role"]),
     )
