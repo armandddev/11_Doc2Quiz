@@ -3,7 +3,7 @@ import json
 
 def detection_section_displine(section : Section) :
     # Check if the section is not empty
-    if len(section.pages) == 0 or not section.text.strip():
+    if not section.text.strip():
         raise Exception("Section empty")
     try :
         from Doc2Quiz.ollama_client.ollama_wrapper import OllamaWrapper
