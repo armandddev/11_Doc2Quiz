@@ -27,6 +27,6 @@ Vous pouvez démarrer un entraînement de deux manières :
 
 ## 3. Correction & Résultats
 
-* **Correction immédiate :** Si votre réponse est incorrecte, la bonne question est séléctionné en **rouge** directement pour vous indiquer la bonne réponse.
+* **Correction immédiate :** Si votre réponse est incorrecte, la bonne question est séléctionné en **verte** directement pour vous indiquer la bonne réponse.
 * **Calcul du score :** À la fin du questionnaire, votre résultat global est calculé sur le **nombre total de questions** (ex. *8/10*).
 * **Sauvegarde automatique :** Votre score final est enregistré automatiquement dans votre **Profil** pour vous permettre de suivre vos résultats au fil du temps (rubrique *Profil*).

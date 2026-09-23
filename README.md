@@ -36,6 +36,7 @@ PYTHONPATH=src python src/Doc2Quiz/ui_gradio.py
 ### Avec Docker
 
 ```bash
+docker compose build
 docker compose up -d
 ```
 
