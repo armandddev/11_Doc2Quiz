@@ -604,7 +604,7 @@ with gr.Blocks(title="11_Doc2Quiz", theme=global_theme, css=custom_css) as demo:
     with gr.Column(visible=True) as page_1:
         document_upload = gr.File(
             show_label=False,
-            file_types=[".md", ".txt", ".pdf", ".docx"],
+            file_types=[".md", ".txt", ".pdf", ".docx", ".xlsx"],
             elem_classes=["document_uploadSujet"],
         )
 
