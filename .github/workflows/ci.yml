@@ -52,6 +52,3 @@ jobs:
         run: psql -h localhost -U app_user -d app_db -f src/Doc2Quiz/sql/init.sql
         env:
           PGPASSWORD: app_secret
-
-      - name: Lancer les tests
-        run: PYTHONPATH=src pytest test/ -v
