@@ -1,8 +1,7 @@
-# service/core.py — version corrigée complète
 from Doc2Quiz.service.anti_verbatim import is_too_similar
 from Doc2Quiz.config import settings
-from shared.logging import get_logger           # ✅ shared est direct
-from shared.document import extractFromPdf, extractFromMd  # ✅ idem
+from shared.logging import get_logger
+from shared.document import extractFromPdf, extractFromMd
 
 logger = get_logger("core")
 

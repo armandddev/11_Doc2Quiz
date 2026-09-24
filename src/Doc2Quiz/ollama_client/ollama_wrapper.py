@@ -1,18 +1,3 @@
-"""
-ollama_wrapper.py
-=================
-Client REST robuste et typé pour l'API HTTP d'Ollama (IUT).
-
-Configuration via .env (à la racine du projet) :
-    OLLAMA_BASE_URL        = http://10.22.28.190:11434
-    OLLAMA_DEFAULT_LLM     = gemma4:26b
-    OLLAMA_DEFAULT_VLM     = qwen3-vl:8b-instruct
-    OLLAMA_DEFAULT_EMBED   = qwen3-embedding:0.6b
-    OLLAMA_TIMEOUT_S       = 120.0
-    OLLAMA_MAX_RETRIES     = 3
-    OLLAMA_RETRY_BACKOFF_S = 1.0
-"""
-
 from __future__ import annotations
 
 import base64

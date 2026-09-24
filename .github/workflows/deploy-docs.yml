@@ -1,0 +1,32 @@
+name: Build & Deploy User Doc
+
+on:
+  push:
+    branches: [ '**' ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install Pandoc & LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex
+
+      - name: Generate PDF
+        run: |
+          pandoc docs/user-guide/faq.md \
+                 -o docs/user-guide/documentation-utilisateur.pdf \
+                 --pdf-engine=xelatex \
+                 --toc \
+                 -V geometry:margin=2.5cm \
+                 -V lang=fr-FR
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/user-guide

@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: app_db
     volumes:
       - pg_data_Doc2Quiz:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432"
     healthcheck:
