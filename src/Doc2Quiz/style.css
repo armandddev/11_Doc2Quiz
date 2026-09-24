@@ -1,0 +1,204 @@
+/* ==========================================================================
+   STYLE GÉNÉRAL DU SITE
+   ========================================================================== */
+.gradio-container { 
+    background-color: #BBB4B4; 
+}
+
+#widthPage {
+    width: 80%;
+    margin-left: 10%;
+    align-items: center;
+}
+
+#btn_profil { 
+    border-radius: 12px !important;
+    background-color: #969C95;
+    flex-grow: 0 !important;
+    padding: 2%;
+}
+
+/* ==========================================================================
+   PAGE REGISTER / SIGN-IN
+   ========================================================================== */
+.logo-styles {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.logo-styles img {
+    max-width: 100%;
+    height: auto;
+}
+
+#labelName {
+    display: flex;
+    justify-content: center;
+    text-align: left;
+    width: 70%;
+    background-color: #BBB4B4;
+    border: 1px solid black;
+    border-radius: 20px;
+}
+
+#buttonCreateAccount {
+    background-color: #C5AA3B;
+}
+
+#linkAccount {
+    background-color: transparent;
+    color: #106FFF;
+    text-decoration: underline;
+}
+
+/* ==========================================================================
+   PAGE D'ACCUEIL (HOME)
+   ========================================================================== */
+#main_grid {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 32px !important;
+    width: 80% !important;
+    margin: 0 auto !important;
+}
+
+/* Zone de dépôt de fichier */
+#file_upload_zone {
+    background-color: #FFFFFF !important;
+    border: 2px dashed #000000 !important;
+    border-radius: 8px !important;
+    min-height: 320px !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+/* Bloc Révision */
+#revision_box {
+    background: #FFFFFF !important;
+    border: 2px solid #000000 !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    min-width: 0 !important;
+}
+
+.revision-title {
+    text-align: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0;
+    padding: 14px 0;
+    border-bottom: 2px solid #000000;
+    color: #000000;
+}
+
+/* Options radio (sans aucun fond gris résiduel) */
+#revision_options,
+#revision_options .wrap,
+#revision_options .form {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 18px 10px !important;
+}
+
+#revision_options .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+}
+
+#revision_options label,
+#revision_options label span {
+    background: transparent !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+    color: #000000 !important;
+    font-size: 1.15rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+}
+
+/* Sélecteur de difficulté */
+#ChoiceDifficulty {
+    display: flex;
+    text-align: left;
+    width: 70%;
+    background-color: #BBB4B4;
+    border: 1px solid black;
+    border-radius: 20px;
+}
+
+#ChoiceDifficulty label,
+#ChoiceDifficulty label span,
+#ChoiceDifficulty [data-testid="block-info"] {
+    background-color: #BBB4B4;
+    color: black;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   PAGE DE CORRECTION (QCM)
+   ========================================================================== */
+/* Conteneur blanc avec bordure noire */
+#correction_bar {
+    width: 80% !important;
+    margin: 20px auto !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    padding: 6px 14px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* Champ texte sans bordure interne */
+#correction_text,
+#correction_text input,
+#correction_text .wrap {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 1.1rem !important;
+    color: #333333 !important;
+    padding: 6px 4px !important;
+}
+
+#correction_text input::placeholder {
+    color: #777777 !important;
+}
+
+/* Bouton rond bleu avec flèche */
+#btn_send_correction {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    max-width: 38px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    background-color: #79C5FF !important;
+    border: none !important;
+    color: #000000 !important;
+    font-size: 1.3rem !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    line-height: 1 !important;
+}
+
+#btn_send_correction:hover {
+    background-color: #5bb3f7 !important;
+}
+
+#buttonGenerateOK{
+    background-color: #C5AA3B;
+}
