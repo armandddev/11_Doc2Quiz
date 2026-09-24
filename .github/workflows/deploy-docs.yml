@@ -31,7 +31,6 @@ jobs:
             docs/user-guide/faq.md \
             -o docs/user-guide/documentation-utilisateur.pdf \
             --pdf-engine=xelatex \
-            --toc \
             --toc-depth=2 \
             -V geometry:margin=2.5cm \
             -V lang=fr-FR \
