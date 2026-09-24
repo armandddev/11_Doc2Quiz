@@ -1,29 +1,66 @@
-name: Build & Deploy User Doc
+name: Deploy Doc
 
 on:
   push:
-    branches: [ '**' ]
+    branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  deploy-doc:
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    permissions:
+      contents: write
 
-      - name: Install Pandoc & LaTeX
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Pandoc & LaTeX
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex
 
-      - name: Generate PDF
+      - name: Générer le PDF complet
         run: |
-          pandoc docs/user-guide/faq.md \
-                 -o docs/user-guide/documentation-utilisateur.pdf \
-                 --pdf-engine=xelatex \
-                 --toc \
-                 -V geometry:margin=2.5cm \
-                 -V lang=fr-FR
+          pandoc \
+            docs/user-guide/introduction.md \
+            docs/user-guide/fonctionnalites/00-inscription.md \
+            docs/user-guide/fonctionnalites/01-connexion.md \
+            docs/user-guide/fonctionnalites/02-creation-qcm.md \
+            docs/user-guide/fonctionnalites/03-entrainement.md \
+            docs/user-guide/fonctionnalites/04-profil.md \
+            docs/user-guide/faq.md \
+            -o docs/user-guide/documentation-utilisateur.pdf \
+            --pdf-engine=xelatex \
+            --toc \
+            --toc-depth=2 \
+            -V geometry:margin=2.5cm \
+            -V lang=fr-FR \
+            -V toc-title:"Table des matières"
+
+      - name: Générer index.html
+        run: |
+          cat > docs/user-guide/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html lang="fr">
+          <head>
+            <meta charset="UTF-8">
+            <title>Documentation Doc2Quiz</title>
+            <style>
+              body { font-family: sans-serif; max-width: 700px; margin: 60px auto; color: #222; }
+              h1 { color: #1a1a2e; }
+              a { color: #4f46e5; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              .btn { display: inline-block; margin-top: 20px; padding: 12px 24px;
+                     background: #4f46e5; color: white; border-radius: 8px; }
+            </style>
+          </head>
+          <body>
+            <h1>Documentation Doc2Quiz</h1>
+            <p>Documentation utilisateur complète de l'application Doc2Quiz.</p>
+            <a class="btn" href="documentation-utilisateur.pdf">Télécharger la documentation (PDF)</a>
+          </body>
+          </html>
+          EOF
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

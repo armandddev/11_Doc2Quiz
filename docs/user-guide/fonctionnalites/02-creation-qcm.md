@@ -15,7 +15,7 @@ Cette fonctionnalité permet de transformer automatiquement un support de cours 
    - Glissez-déposez votre document (`.pdf` ou `.md`) dans la zone dédiée, ou
    - Cliquez sur la zone d'import pour sélectionner le fichier depuis votre ordinateur.
 3. **Sélectionnez le niveau :** Choisissez le niveau d'enseignement ciblé dans le menu déroulant (ex. *4ème, Seconde, BUT...*).
-4. **Sélectionnez le type de QCM** Choississez entre Question de cours ou Exercices ou les 2 à la fois.
+4. **Sélectionnez le type de QCM** Choisissez entre Question de cours ou Exercices ou les 2 à la fois.
 5. Cliquez sur **« Générer le QCM »**.
 
 > **Note :** Pendant le traitement de votre document, une phase de chargement s'affiche. La durée de génération dépend de la taille de votre fichier.
