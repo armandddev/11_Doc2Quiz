@@ -6,6 +6,8 @@
 
 Bienvenue dans la documentation officielle de **Doc2Quizz**.
 
+<!-- TOC_PDF -->
+
 ---
 
 ## Présentation du produit

@@ -21,8 +21,10 @@ jobs:
 
       - name: Générer le PDF complet
         run: |
+          awk '{ if ($0 == "<!-- TOC_PDF -->") { print "\\renewcommand{\\contentsname}{Table des matières}"; print "\\setcounter{tocdepth}{2}"; print "\\tableofcontents"; print "\\newpage" } else print }' \
+            docs/user-guide/introduction.md > /tmp/introduction.md
           pandoc \
-            docs/user-guide/introduction.md \
+            /tmp/introduction.md \
             docs/user-guide/fonctionnalites/00-inscription.md \
             docs/user-guide/fonctionnalites/01-connexion-compte.md \
             docs/user-guide/fonctionnalites/02-creation-qcm.md \
@@ -31,7 +33,7 @@ jobs:
             docs/user-guide/faq.md \
             -o docs/user-guide/documentation-utilisateur.pdf \
             --pdf-engine=xelatex \
-            --toc \
+            --resource-path=.:docs/user-guide:docs/user-guide/fonctionnalites \
             --toc-depth=2 \
             -V geometry:margin=2.5cm \
             -V lang=fr-FR \
