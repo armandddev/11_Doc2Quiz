@@ -33,6 +33,7 @@ jobs:
             docs/user-guide/faq.md \
             -o docs/user-guide/documentation-utilisateur.pdf \
             --pdf-engine=xelatex \
+            --resource-path=.:docs/user-guide:docs/user-guide/fonctionnalites \
             --toc-depth=2 \
             -V geometry:margin=2.5cm \
             -V lang=fr-FR \
@@ -56,7 +57,7 @@ jobs:
             </style>
           </head>
           <body>
-            <img class="logo" src="../docs/user-guide/assets/logo.png" alt="Logo Doc2Quiz">
+            <img class="logo" src="assets/logo.png" alt="Logo Doc2Quiz">
             <h1>Documentation Doc2Quiz</h1>
             <p>Documentation utilisateur complète de l'application Doc2Quiz.</p>
             <a class="btn" href="documentation-utilisateur.pdf">Télécharger la documentation (PDF)</a>
