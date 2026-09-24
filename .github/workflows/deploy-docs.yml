@@ -2,7 +2,7 @@ name: Deploy Doc
 
 on:
   push:
-    branches: [ main ]
+    branches: [ '**' ]
 
 jobs:
   deploy-doc:
