@@ -24,7 +24,7 @@ jobs:
           pandoc \
             docs/user-guide/introduction.md \
             docs/user-guide/fonctionnalites/00-inscription.md \
-            docs/user-guide/fonctionnalites/01-connexion.md \
+            docs/user-guide/fonctionnalites/01-connexion-compte.md \
             docs/user-guide/fonctionnalites/02-creation-qcm.md \
             docs/user-guide/fonctionnalites/03-entrainement.md \
             docs/user-guide/fonctionnalites/04-profil.md \

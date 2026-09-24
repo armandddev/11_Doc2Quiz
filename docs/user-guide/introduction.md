@@ -21,12 +21,11 @@ Bienvenue dans la documentation officielle de **Doc2Quizz**.
 La documentation suit le parcours d'utilisation de l'application :
 
 1. **[Inscription](fonctionnalites/00-inscription.md)** — Créer son compte et accéder à son espace.
-2. **[Connexion](fonctionnalites/01-connexion.md)** — Se connecter à son compte utilisateur.
+2. **[Connexion](fonctionnalites/01-connexion-compte.md)** — Se connecter à son compte utilisateur.
 3. **[Création d'un QCM](fonctionnalites/02-creation-qcm.md)** — Importer un fichier de cours et générer un QCM.
 4. **[Entraînement sur un QCM](fonctionnalites/03-entrainement.md)** — Lancer une session de révision et tester ses connaissances.
 5. **[Consultation du profil](fonctionnalites/04-profil.md)** — Gérer ses informations personnelles et son historique.
-6. **[Tutoriels pas à pas](tutoriels.md)** — Guides pratiques pour réaliser des actions clés.
-7. **[FAQ](faq.md)** — Foire aux questions et solutions aux problèmes fréquents.
+6. **[FAQ](faq.md)** — Foire aux questions et solutions aux problèmes fréquents.
 
 ---
 
