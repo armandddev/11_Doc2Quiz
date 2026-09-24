@@ -6,10 +6,6 @@
 
 Bienvenue dans la documentation officielle de **Doc2Quizz**.
 
-<!-- TOC_PDF -->
-
----
-
 ## Présentation du produit
 **Doc2Quizz** est un outil intelligent conçu pour générer automatiquement des questionnaires à choix multiples (QCM) à partir de vos fichiers de cours (documents PDF, textes, supports de cours).
 
