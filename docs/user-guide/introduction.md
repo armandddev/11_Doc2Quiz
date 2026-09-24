@@ -6,15 +6,7 @@
 
 Bienvenue dans la documentation officielle de **Doc2Quizz**.
 
-## Table des matières
-
-- [Présentation du produit](#présentation-du-produit)
-- [Inscription](#fonctionnalité-utilisateur-création-dun-compte)
-- [Connexion](#fonctionnalité-utilisateur-connexion-à-un-compte)
-- [Création d'un QCM](#fonctionnalités-utilisateur-création-dun-qcm)
-- [Entraînement sur un QCM](#fonctionnalités-utilisateur-entraînement-sur-un-qcm)
-- [Consultation du profil](#fonctionnalité-utilisateur-consultation-du-profil)
-- [FAQ](#faq)
+<!-- TOC_PDF -->
 
 ---
 

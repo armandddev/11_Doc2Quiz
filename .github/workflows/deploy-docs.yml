@@ -21,8 +21,10 @@ jobs:
 
       - name: Générer le PDF complet
         run: |
+          awk '{ if ($0 == "<!-- TOC_PDF -->") { print "\\renewcommand{\\contentsname}{Table des matières}"; print "\\setcounter{tocdepth}{2}"; print "\\tableofcontents"; print "\\newpage" } else print }' \
+            docs/user-guide/introduction.md > /tmp/introduction.md
           pandoc \
-            docs/user-guide/introduction.md \
+            /tmp/introduction.md \
             docs/user-guide/fonctionnalites/00-inscription.md \
             docs/user-guide/fonctionnalites/01-connexion-compte.md \
             docs/user-guide/fonctionnalites/02-creation-qcm.md \
@@ -54,6 +56,7 @@ jobs:
             </style>
           </head>
           <body>
+            <img class="logo" src="../docs/user-guide/assets/logo.png" alt="Logo Doc2Quiz">
             <h1>Documentation Doc2Quiz</h1>
             <p>Documentation utilisateur complète de l'application Doc2Quiz.</p>
             <a class="btn" href="documentation-utilisateur.pdf">Télécharger la documentation (PDF)</a>
