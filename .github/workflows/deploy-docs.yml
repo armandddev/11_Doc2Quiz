@@ -37,30 +37,49 @@ jobs:
             -V lang=fr-FR \
             -V toc-title:"Table des matières"
 
-      - name: Générer index.html
+      - name: Configurer le template Jekyll
         run: |
-          cat > docs/user-guide/index.html << 'EOF'
-          <!DOCTYPE html>
-          <html lang="fr">
-          <head>
-            <meta charset="UTF-8">
-            <title>Documentation Doc2Quiz</title>
-            <style>
-              body { font-family: sans-serif; max-width: 700px; margin: 60px auto; color: #222; }
-              h1 { color: #1a1a2e; }
-              a { color: #4f46e5; text-decoration: none; }
-              a:hover { text-decoration: underline; }
-              .btn { display: inline-block; margin-top: 20px; padding: 12px 24px;
-                     background: #4f46e5; color: white; border-radius: 8px; }
-            </style>
-          </head>
-          <body>
-            <h1>Documentation Doc2Quiz</h1>
-            <p>Documentation utilisateur complète de l'application Doc2Quiz.</p>
-            <a class="btn" href="documentation-utilisateur.pdf">Télécharger la documentation (PDF)</a>
-          </body>
-          </html>
+          cat > docs/user-guide/_config.yml << 'EOF'
+          title: Documentation Doc2Quiz
+          description: Documentation utilisateur complète
+          remote_theme: just-the-docs/just-the-docs
+          
+          search_enabled: true
+          heading_anchors: true
+
+          plugins:
+            - jekyll-remote-theme
           EOF
+
+          cat > docs/user-guide/index.md << 'EOF'
+          layout: default
+          title: Accueil
+          nav_order: 1
+
+          Bienvenue sur la documentation en ligne de l'application **Doc2Quiz**.
+
+          [Télécharger la version PDF complète](documentation-utilisateur.pdf){: .btn .btn-green }
+
+          Utilisez le menu latéral pour naviguer à travers les différentes sections du guide.
+          EOF
+
+          sed -i '1s/^/---\nlayout: default\ntitle: Introduction\nnav_order: 2\n---\n\n/' docs/user-guide/introduction.md
+          sed -i '1s/^/---\nlayout: default\ntitle: FAQ\nnav_order: 4\n---\n\n/' docs/user-guide/faq.md
+
+          cat > docs/user-guide/fonctionnalites/index.md << 'EOF'
+          layout: default
+          title: Fonctionnalités
+          nav_order: 3
+          has_children: true
+
+          Retrouvez ici tous les guides détaillés par fonctionnalité.
+          EOF
+
+          sed -i '1s/^/---\nlayout: default\ntitle: Inscription\nparent: Fonctionnalités\nnav_order: 1\n---\n\n/' docs/user-guide/fonctionnalites/00-inscription.md
+          sed -i '1s/^/---\nlayout: default\ntitle: Connexion au compte\nparent: Fonctionnalités\nnav_order: 2\n---\n\n/' docs/user-guide/fonctionnalites/01-connexion_compte.md
+          sed -i '1s/^/---\nlayout: default\ntitle: Création de QCM\nparent: Fonctionnalités\nnav_order: 3\n---\n\n/' docs/user-guide/fonctionnalites/02-creation-qcm.md
+          sed -i '1s/^/---\nlayout: default\ntitle: Entraînement\nparent: Fonctionnalités\nnav_order: 4\n---\n\n/' docs/user-guide/fonctionnalites/03-entrainement.md
+          sed -i '1s/^/---\nlayout: default\ntitle: Gestion du profil\nparent: Fonctionnalités\nnav_order: 5\n---\n\n/' docs/user-guide/fonctionnalites/04-profil.md
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
