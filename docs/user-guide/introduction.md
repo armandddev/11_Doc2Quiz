@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Logo Documentation" height="80"/>
-</p>
-
 # Documentation Utilisateur — Doc2Quizz
 
 Bienvenue dans la documentation officielle de **Doc2Quizz**.

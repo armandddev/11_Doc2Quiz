@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="../assets/logo.png" alt="Logo Documentation" height="80"/>
-</p>
-
 # Fonctionnalités Utilisateur : Entraînement sur un QCM
 
 La fonctionnalité d'entraînement permet de tester ses connaissances en répondant à un QCM interactif et d'évaluer sa progression.

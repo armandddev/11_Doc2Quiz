@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="../assets/logo.png" alt="Logo Documentation" height="80"/>
-</p>
-
 # Fonctionnalité Utilisateur : Connexion à un compte
 
 ## Présentation

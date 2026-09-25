@@ -1,8 +1,3 @@
-<p align="center">
-  <img src="assets/logo.png" alt="Logo Documentation" height="80"/>
-</p>
-
-
 # FAQ
 
 Retrouvez ici les réponses aux questions les plus fréquentes ainsi que les solutions aux problèmes techniques courants sur **Doc2Quizz**.

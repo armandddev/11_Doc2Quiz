@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="../assets/logo.png" alt="Logo Documentation" height="80"/>
-</p>
-
 # Fonctionnalités Utilisateur : Création d'un QCM
 
 Cette fonctionnalité permet de transformer automatiquement un support de cours en un questionnaire à choix multiples personnalisable.
