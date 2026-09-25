@@ -2,8 +2,8 @@ import base64
 from pathlib import Path
 import gradio as gr
 
-def render_QCM():
-    with gr.Column(visible=False) as generateQCM_container:
+def render_choiceTeacher():
+    with gr.Column(visible=False) as choiceTeacher_container:
         with gr.Row():
             ## Titre DOC2QUIZ + bouton "Mon profil"
             gr.HTML('''
@@ -13,18 +13,16 @@ def render_QCM():
                     </h1>
                 </div>
             ''')
-            btn_profil_QCM = gr.Button("👤 Mon profil", elem_id="btn_profil")
+            btn_profil_ChoiceTeacher = gr.Button("👤 Mon profil", elem_id="btn_profil")
 
-        ## Texte QCM généré
+        # Titre de la page
         gr.HTML('''
-            <div style="width: 100%; text-align: center; margin: 20px auto 10px auto;">
-                <h2 style="font-size: 1.8rem; color: #000000; margin: 0;">
-                    Votre QCM est généré
+            <div style="width: 100%; text-align: center; margin: 20px auto;">
+                <h2 style="font-size: 2rem; font-weight: 600; color: #000000; margin: 0;">
+                    Choix pour votre QCM
                 </h2>
             </div>
         ''')
-
-
 
         ## Visualisation du QCM via l'application web
         pdf_path = Path("storage/CV-BONNIER_Gabin.pdf").resolve()
@@ -41,27 +39,11 @@ def render_QCM():
 
         gr.HTML(html_viewer)
 
-        ## envoie de correctif sur le QCM généré en PDF (pour le moment)
-        with gr.Row(elem_id="correction_bar"):
-            correction_input = gr.Textbox(
-                placeholder="Apporter une correction...",
-                show_label=False,
-                container=False,
-                scale=9,
-                elem_id="correction_text"
-            )
-            btn_submit_correction = gr.Button(
-                "↑",
-                scale=1,
-                elem_id="btn_send_correction"
-            )
+        with gr.Row(elem_id="student_actions"):
+            btn_export = gr.Button(
+                            "Exporter le QCM",
+                            variant="secondary",
+                            elem_id="buttonExport"
+                        )
 
-       ## bouton pour passer à la page suivante
-        with gr.Row(elem_id="widthPage"):
-            btn_generate_ok = gr.Button(
-                "Aucune erreur / Correction détectée",
-                variant="secondary",
-                elem_id="buttonGenerateOK"
-            )
-
-    return generateQCM_container, btn_generate_ok, btn_submit_correction, correction_input, btn_profil_QCM
+    return choiceTeacher_container, btn_export, btn_profil_ChoiceTeacher

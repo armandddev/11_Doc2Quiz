@@ -2,7 +2,7 @@ from pathlib import Path
 import gradio as gr
 
 def render_homePage():
-    with gr.Column(visible=False) as homepage_container:
+    with gr.Column(visible=True) as homepage_container:
         with gr.Row():
             gr.HTML('''
                 <div style="width: 100%; text-align: center; margin: 0px auto 20px auto;">
@@ -12,7 +12,7 @@ def render_homePage():
                 </div>
             ''')
 
-            gr.Button(
+            btn_profil_homePage = gr.Button(
                 "👤 Mon profil",
                 elem_id="btn_profil"
             )
@@ -52,7 +52,7 @@ def render_homePage():
             )
 
 
-    return homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate
+    return homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate, btn_profil_homePage
 
 
 

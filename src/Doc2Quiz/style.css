@@ -202,3 +202,336 @@
 #buttonGenerateOK{
     background-color: #C5AA3B;
 }
+
+/* ==========================================================================
+   PAGE DE CORRECTION (QCM)
+   ========================================================================== */
+#buttonExport{
+    background-color: #C5AA3B;
+}
+
+#buttonTraining{
+    background-color: #8BB784;
+}
+
+#student_actions {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 40px !important;
+}
+
+/* Cadre central du PDF */
+.export-box-pdf {
+    width: 60%;
+    margin: 15px auto 25px auto;
+    background-color: #FFFFFF;
+    border: 1.5px solid #000000;
+    overflow: hidden;
+}
+
+.export-box-placeholder {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+}
+
+.export-box-placeholder h2 {
+    font-size: 1.7rem;
+    font-weight: 500;
+    color: #000000;
+    margin: 0;
+}
+
+/* Alignement horizontal des 3 boutons de choix */
+#export_format_selector {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    width: 65% !important;
+    margin: 0 auto 30px auto !important;
+}
+
+#export_format_selector .wrap {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    gap: 25px !important;
+    width: 100% !important;
+}
+
+/* Style de base de chaque bloc (blanc, bordure noire) */
+#export_format_selector label {
+    flex: 1 !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    height: 60px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    transition: background-color 0.2s ease !important;
+}
+
+/* Masquer le cercle radio natif */
+#export_format_selector input[type="radio"] {
+    display: none !important;
+}
+
+/* Texte des boutons */
+#export_format_selector label span {
+    font-weight: 600 !important;
+    color: #000000 !important;
+    font-size: 1rem !important;
+    text-align: center !important;
+}
+
+/* État sélectionné (vert) */
+#export_format_selector label:has(input:checked),
+#export_format_selector label.selected {
+    background-color: #71C66C !important;
+}
+
+/* Ligne et bouton EXPORTER doré */
+#export_action_row {
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    margin: 10px auto 30px auto !important;
+}
+
+#btn_confirm_export {
+    background-color: #C5AA3B !important;
+    color: #000000 !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    font-weight: 700 !important;
+    font-size: 1.1rem !important;
+    height: 55px !important;
+    width: 380px !important;
+    max-width: 80% !important;
+    box-shadow: none !important;
+}
+
+
+/* ==========================================================================
+   PAGE D'ENTRAINEMENT (QCM)
+   ========================================================================== */
+/* Bouton "← Quitter" en haut à gauche */
+#training_header_row {
+    align-items: center !important;
+    margin-bottom: 25px !important;
+}
+
+#btn_quit_quiz {
+    background: transparent !important;
+    border: none !important;
+    color: #222222 !important;
+    font-size: 1.1rem !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    min-width: 110px !important;
+    text-align: left !important;
+}
+
+/* Cartouche bleu de la question */
+.question-header-card {
+    background-color: #8596C7;
+    width: 60%;
+    margin: 20px auto 40px auto;
+    padding: 22px 30px;
+    border-radius: 4px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.question-step {
+    font-size: 1.15rem;
+    color: #55628D;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.question-title {
+    font-size: 1.6rem;
+    color: #000000;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+/* Zone Radio QCM */
+/* Conteneur principal */
+#qcm_custom_radio {
+    width: 60% !important;
+    margin: 0 auto 30px auto !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+#qcm_custom_radio .wrap {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+    counter-reset: qcm-counter !important; /* Compteur pour A, B, C, D */
+}
+
+/* Boîte de chaque réponse */
+#qcm_custom_radio label {
+    display: flex !important;
+    align-items: stretch !important;
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    min-height: 56px !important;
+    padding: 0 !important;
+    cursor: pointer !important;
+    overflow: hidden !important;
+    position: relative !important;
+    transition: background-color 0.15s ease !important;
+}
+
+/* Cache le rond radio natif */
+#qcm_custom_radio input[type="radio"] {
+    position: absolute !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* Badge bleu A, B, C, D généré dynamiquement */
+#qcm_custom_radio label::before {
+    counter-increment: qcm-counter !important;
+    content: counter(qcm-counter, upper-alpha) !important;
+    background-color: #657FB5 !important;
+    color: #000000 !important;
+    font-weight: 700 !important;
+    font-size: 1.4rem !important;
+    width: 55px !important;
+    min-width: 55px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-right: 1.5px solid #000000 !important;
+}
+
+/* Texte de la réponse */
+#qcm_custom_radio label span {
+    flex-grow: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.15rem !important;
+    font-weight: 500 !important;
+    color: #000000 !important;
+    padding: 10px 20px !important;
+    text-align: center !important;
+}
+
+/* État sélectionné : l'ensemble passe au VERT */
+#qcm_custom_radio label:has(input:checked),
+#qcm_custom_radio label.selected {
+    background-color: #71C66C !important;
+}
+
+/* Changement de couleur du badge au clic pour s'accorder au vert */
+#qcm_custom_radio label:has(input:checked)::before,
+#qcm_custom_radio label.selected::before {
+    background-color: #5ea859 !important;
+}
+
+/* Conteneur de l'exercice */
+#quiz_exercise_input {
+    width: 60% !important;
+    margin: 10px auto 35px auto !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Zone textarea blanche à bordure noire */
+#quiz_exercise_input textarea {
+    background-color: #FFFFFF !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    width: 100% !important;
+    min-height: 260px !important;
+    padding: 30px !important;
+    font-size: 1.25rem !important;
+    color: #000000 !important;
+    box-shadow: none !important;
+    resize: vertical !important;
+}
+
+/* Texte indicatif (placeholder) */
+#quiz_exercise_input textarea::placeholder {
+    color: #555555 !important;
+    font-size: 1.25rem !important;
+    line-height: 1.5 !important;
+    text-align: center !important;
+}
+
+
+
+
+
+
+/* Zone récapitulative du résultat */
+.result-recap-box {
+    text-align: center;
+    margin: 40px auto 50px auto;
+    color: #000000;
+}
+
+.result-congrats {
+    font-size: 2rem;
+    font-weight: 600;
+    margin-bottom: 35px;
+}
+
+.result-info p {
+    font-size: 1.6rem;
+    font-weight: 500;
+    margin: 10px 0;
+}
+
+.result-score {
+    font-weight: 700;
+}
+
+/* Ligne des boutons d'action */
+#result_actions_row {
+    width: 65% !important;
+    margin: 30px auto !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    gap: 40px !important;
+}
+
+/* Bouton Vert : Enregistrer dans mon profil */
+#btn_save_result {
+    background-color: #8EB78B !important;
+    color: #000000 !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    font-weight: 600 !important;
+    font-size: 1.2rem !important;
+    height: 70px !important;
+    width: 48% !important;
+}
+
+/* Bouton Rouge : Ne pas sauvegarder */
+#btn_discard_result {
+    background-color: #E25D5D !important;
+    color: #000000 !important;
+    border: 1.5px solid #000000 !important;
+    border-radius: 0px !important;
+    font-weight: 600 !important;
+    font-size: 1.2rem !important;
+    height: 70px !important;
+    width: 48% !important;
+}
