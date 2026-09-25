@@ -45,18 +45,18 @@ jobs:
           title: Documentation Doc2Quiz
           description: Documentation utilisateur complète
           remote_theme: just-the-docs/just-the-docs
-          
           search_enabled: true
           heading_anchors: true
-
           plugins:
             - jekyll-remote-theme
           EOF
 
           cat > docs/user-guide/index.md << 'EOF'
+          ---
           layout: default
           title: Accueil
           nav_order: 1
+          ---
 
           Bienvenue sur la documentation en ligne de l'application **Doc2Quiz**.
 
@@ -84,7 +84,7 @@ jobs:
           sed -i '1s/^/---\nlayout: default\ntitle: Gestion du profil\nparent: Fonctionnalités\nnav_order: 5\n---\n\n/' docs/user-guide/fonctionnalites/04-profil.md
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs/user-guide
