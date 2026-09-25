@@ -14,10 +14,19 @@ jobs:
       - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Installer Pandoc, LaTeX & Ruby
+      - name: Installer Pandoc & LaTeX
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex ruby-full build-essential
+          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex
+
+      - name: Installer Python & MkDocs
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Dépendances MkDocs
+        run: |
+          pip install mkdocs mkdocs-material
 
       - name: Générer le PDF complet
         run: |
@@ -39,63 +48,53 @@ jobs:
             -V lang=fr-FR \
             -V toc-title:"Table des matières"
 
-      - name: Configurer et compiler le site Jekyll
+      - name: Préparer la configuration MkDocs
         run: |
-          cat > docs/user-guide/_config.yml << 'EOF'
-          title: Documentation Doc2Quiz
-          description: Documentation utilisateur complète
-          remote_theme: just-the-docs/just-the-docs
-          baseurl: "/11_Doc2Quiz"
-          search_enabled: true
-          heading_anchors: true
-          plugins:
-            - jekyll-remote-theme
+          cat > mkdocs.yml << 'EOF'
+          site_name: Documentation Doc2Quiz
+          site_description: Documentation utilisateur complète
+          site_url: https://armandddev.github.io/11_Doc2Quiz/
+
+          theme:
+            name: material
+            palette:
+              primary: indigo
+              accent: indigo
+            features:
+              - navigation.tabs
+              - navigation.sections
+
+          docs_dir: docs/user-guide
+
+          nav:
+            - Accueil: index.md
+            - Introduction: introduction.md
+            - Fonctionnalités:
+              - Inscription: fonctionnalites/00-inscription.md
+              - Connexion au compte: fonctionnalites/01-connexion_compte.md
+              - Création de QCM: fonctionnalites/02-creation-qcm.md
+              - Entraînement: fonctionnalites/03-entrainement.md
+              - Gestion du profil: fonctionnalites/04-profil.md
+            - FAQ: faq.md
           EOF
 
-          cat > docs/user-guide/index.html << 'EOF'
-          ---
-          layout: default
-          title: Accueil
-          nav_order: 1
-          ---
+          cat > docs/user-guide/index.md << 'EOF'
+          # Bienvenue sur la documentation Doc2Quiz
 
-          Bienvenue sur la documentation en ligne de l'application **Doc2Quiz**.
+          Retrouvez l'ensemble des guides et explications pour l'utilisation de **Doc2Quiz**.
 
-          [Télécharger la version PDF complète](documentation-utilisateur.pdf){: .btn .btn-green }
+          [Télécharger la version PDF complète](documentation-utilisateur.pdf){ .md-button .md-button--primary }
 
-          Utilisez le menu latéral pour naviguer à travers les différentes sections du guide.
-          EOF
-
-          cat > docs/user-guide/fonctionnalites/index.md << 'EOF'
-          ---
-          layout: default
-          title: Fonctionnalités
-          nav_order: 3
-          has_children: true
-          ---
-
-          Retrouvez ici tous les guides détaillés par fonctionnalité.
+          Utilisez le menu latéral pour naviguer à travers les différentes sections.
           EOF
 
           sed -i 's/<!-- TOC_PDF -->//g' docs/user-guide/introduction.md
 
-          sed -i '1s/^/---\nlayout: default\ntitle: Introduction\nnav_order: 2\n---\n\n/' docs/user-guide/introduction.md
-          sed -i '1s/^/---\nlayout: default\ntitle: FAQ\nnav_order: 4\n---\n\n/' docs/user-guide/faq.md
+      - name: Builder la documentation avec MkDocs
+        run: |
+          mkdocs build --site-dir _site
 
-          sed -i '1s/^/---\nlayout: default\ntitle: Inscription\nparent: Fonctionnalités\nnav_order: 1\n---\n\n/' docs/user-guide/fonctionnalites/00-inscription.md
-          sed -i '1s/^/---\nlayout: default\ntitle: Connexion au compte\nparent: Fonctionnalités\nnav_order: 2\n---\n\n/' docs/user-guide/fonctionnalites/01-connexion_compte.md
-          sed -i '1s/^/---\nlayout: default\ntitle: Création de QCM\nparent: Fonctionnalités\nnav_order: 3\n---\n\n/' docs/user-guide/fonctionnalites/02-creation-qcm.md
-          sed -i '1s/^/---\nlayout: default\ntitle: Entraînement\nparent: Fonctionnalités\nnav_order: 4\n---\n\n/' docs/user-guide/fonctionnalites/03-entrainement.md
-          sed -i '1s/^/---\nlayout: default\ntitle: Gestion du profil\nparent: Fonctionnalités\nnav_order: 5\n---\n\n/' docs/user-guide/fonctionnalites/04-profil.md
-
-          gem install jekyll bundler
-          cd docs/user-guide
-          bundle init
-          bundle add jekyll just-the-docs jekyll-remote-theme
-          bundle exec jekyll build -d ../../_site
-          touch ../../_site/.nojekyll
-
-      - name: Déployer le site compilé sur gh-pages
+      - name: Déployer sur GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
