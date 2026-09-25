@@ -52,7 +52,7 @@ jobs:
             - jekyll-remote-theme
           EOF
 
-          cat > docs/user-guide/index.md << 'EOF'
+          cat > docs/user-guide/index.html << 'EOF'
           ---
           layout: default
           title: Accueil
