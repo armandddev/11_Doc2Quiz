@@ -64,6 +64,12 @@ jobs:
               - navigation.tabs
               - navigation.sections
 
+          markdown_extensions:
+            - attr_list
+            - md_in_html
+            - admonition
+            - pymdownx.superfences
+
           docs_dir: docs/user-guide
 
           nav:
@@ -79,7 +85,6 @@ jobs:
           EOF
 
           cat > docs/user-guide/index.md << 'EOF'
-          # Bienvenue sur la documentation Doc2Quiz
 
           Retrouvez l'ensemble des guides et explications pour l'utilisation de **Doc2Quiz**.
 
