@@ -66,17 +66,22 @@ jobs:
           Utilisez le menu latéral pour naviguer à travers les différentes sections du guide.
           EOF
 
-          sed -i '1s/^/---\nlayout: default\ntitle: Introduction\nnav_order: 2\n---\n\n/' docs/user-guide/introduction.md
-          sed -i '1s/^/---\nlayout: default\ntitle: FAQ\nnav_order: 4\n---\n\n/' docs/user-guide/faq.md
-
           cat > docs/user-guide/fonctionnalites/index.md << 'EOF'
+          ---
           layout: default
           title: Fonctionnalités
           nav_order: 3
           has_children: true
+          ---
 
           Retrouvez ici tous les guides détaillés par fonctionnalité.
           EOF
+
+          sed -i 's/<!-- TOC_PDF -->//g' docs/user-guide/introduction.md
+
+          # Insertion du Front Matter Jekyll dans les sous-pages
+          sed -i '1s/^/---\nlayout: default\ntitle: Introduction\nnav_order: 2\n---\n\n/' docs/user-guide/introduction.md
+          sed -i '1s/^/---\nlayout: default\ntitle: FAQ\nnav_order: 4\n---\n\n/' docs/user-guide/faq.md
 
           sed -i '1s/^/---\nlayout: default\ntitle: Inscription\nparent: Fonctionnalités\nnav_order: 1\n---\n\n/' docs/user-guide/fonctionnalites/00-inscription.md
           sed -i '1s/^/---\nlayout: default\ntitle: Connexion au compte\nparent: Fonctionnalités\nnav_order: 2\n---\n\n/' docs/user-guide/fonctionnalites/01-connexion_compte.md
