@@ -4,30 +4,20 @@ on:
   push:
     branches: [ '**' ]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
 jobs:
   deploy-doc:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
 
-      - name: Installer Pandoc & LaTeX
+      - name: Installer Pandoc, LaTeX & Ruby
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex
+          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex ruby-full build-essential
 
       - name: Générer le PDF complet
         run: |
@@ -49,7 +39,7 @@ jobs:
             -V lang=fr-FR \
             -V toc-title:"Table des matières"
 
-      - name: Configurer la documentation (Jekyll / Markdown)
+      - name: Configurer et compiler le site Jekyll
         run: |
           cat > docs/user-guide/_config.yml << 'EOF'
           title: Documentation Doc2Quiz
@@ -98,14 +88,16 @@ jobs:
           sed -i '1s/^/---\nlayout: default\ntitle: Entraînement\nparent: Fonctionnalités\nnav_order: 4\n---\n\n/' docs/user-guide/fonctionnalites/03-entrainement.md
           sed -i '1s/^/---\nlayout: default\ntitle: Gestion du profil\nparent: Fonctionnalités\nnav_order: 5\n---\n\n/' docs/user-guide/fonctionnalites/04-profil.md
 
-      - name: Configuration de GitHub Pages
-        uses: actions/configure-pages@v5
+          gem install jekyll bundler
+          cd docs/user-guide
+          bundle init
+          bundle add jekyll just-the-docs jekyll-remote-theme
+          bundle exec jekyll build -d ../../_site
+          touch ../../_site/.nojekyll
 
-      - name: Préparation de l'artefact GitHub Pages
-        uses: actions/upload-pages-artifact@v3
+      - name: Déployer le site compilé sur gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: './docs/user-guide'
-
-      - name: Déploiement direct sur GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true
