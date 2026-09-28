@@ -6,7 +6,7 @@ def render_register_page():
     img_data = (Path.cwd() / "pages" / "assets" / "logo.png").read_bytes()
     b64 = base64.b64encode(img_data).decode()
 
-    with gr.Column(visible=False) as register_container:
+    with gr.Column(visible=True) as register_container:
         gr.HTML(f'<div class="logo-styles"><img src="data:image/png;base64,{b64}"></div>')
 
         with gr.Row(elem_id="widthPage"):

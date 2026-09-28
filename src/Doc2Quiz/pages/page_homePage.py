@@ -2,7 +2,7 @@ from pathlib import Path
 import gradio as gr
 
 def render_homePage():
-    with gr.Column(visible=True) as homepage_container:
+    with gr.Column(visible=False) as homepage_container:
         with gr.Row():
             gr.HTML('''
                 <div style="width: 100%; text-align: center; margin: 0px auto 20px auto;">
