@@ -13,7 +13,6 @@ from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
 
-# Remplace 'mock_profil' par le fichier exact contenant ton get_template_quiz
 from Template.MOCK_Question import get_template_quiz
 
 css_file = Path(__file__).resolve().parent / "style.css"

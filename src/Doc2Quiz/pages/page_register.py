@@ -3,7 +3,7 @@ from pathlib import Path
 import gradio as gr
 
 def render_register_page():
-    img_data = (Path.cwd() / "pages" / "assets" / "logo.png").read_bytes()
+    img_data = (Path(__file__).parent / "assets" / "logo.png").read_bytes()
     b64 = base64.b64encode(img_data).decode()
 
     with gr.Column(visible=True) as register_container:
