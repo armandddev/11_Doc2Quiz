@@ -10,7 +10,7 @@ def render_sign_in_page():
         gr.HTML(f'<div class="logo-styles"><img src="data:image/png;base64,{b64}"></div>')
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            si_email = gr.Textbox(
                 label="Adresse e-mail* :",
                 placeholder="jean.dupont@mail.com",
                 type="email",
@@ -18,7 +18,7 @@ def render_sign_in_page():
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            si_pwd = gr.Textbox(
                 label="Mot de passe* :",
                 placeholder="Entrer votre mot de passe..",
                 type="password",
@@ -26,10 +26,11 @@ def render_sign_in_page():
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Button(
+            btn_login = gr.Button(
                 "Se connecter",
                 variant="secondary",
-                elem_id="buttonCreateAccount"
+                elem_id="buttonCreateAccount",
+                interactive= False
             )
 
         with gr.Row(elem_id="widthPage"):
@@ -38,4 +39,4 @@ def render_sign_in_page():
                 elem_id="linkAccount"
             )
 
-    return sign_in_container, btn_goto_register
+    return sign_in_container,si_email, si_pwd, btn_login,btn_goto_register

@@ -1,6 +1,6 @@
 from pathlib import Path
 import gradio as gr
-
+from service.auth_service import handle_login, handle_register
 from context import AppContext, Role, UserContext
 
 from pages.page_register import render_register_page
@@ -125,6 +125,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         )
     )
     app_state = gr.State(value=current_session)
+    status = gr.Markdown()
+
 
     # États pour mémoriser les questions du quiz et l'étape actuelle
     quiz_questions_state = gr.State(value=[])
@@ -134,8 +136,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     result_container, result_details_html, btn_save, btn_discard, btn_profil_result = render_quiz_result()
     homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate, btn_profil_homePage = render_homePage()
     generateQCM_container, btn_generate_ok, btn_submit_correction, correction_input, btn_profil_QCM = render_QCM()    
-    register_view, btn_to_login = render_register_page()
-    sign_in_view, btn_to_register = render_sign_in_page()
+    register_view, reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_to_login = render_register_page()
+    sign_in_container,si_email, si_pwd, btn_login,btn_goto_register = render_sign_in_page()
     revisionEtudiant_container, btn_export_student, btn_training, btn_profil_ChoiceEtudiant = render_choiceEtudiant()
     choiceTeacher_container, btn_export_teacher, btn_profil_ChoiceTeacher = render_choiceTeacher()
     exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM = render_exportQCM()
@@ -156,13 +158,19 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     btn_to_login.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
-        outputs=[register_view, sign_in_view]
+        outputs=[register_view, sign_in_container]
     )
 
-    btn_to_register.click(
-        fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
+    btn_register.click(
+        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
-        outputs=[register_view, sign_in_view]
+        outputs=[register_view, sign_in_container]
+    )
+    
+    btn_goto_register.click(
+        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
+        inputs = None,
+        outputs = [sign_in_container, register_view]
     )
 
     btn_to_generate.click(
@@ -182,9 +190,15 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         inputs=None,
         outputs=[choiceTeacher_container, exportQCM_container]
     )
+    
+    btn_login.click(
+        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
+        inputs=None,
+        outputs=[sign_in_container, homepage_container]
+    )
 
     # 3. Redirection propre vers le profil (ferme la page actuelle et ouvre le profil)
-    target_profil_view = sign_in_view  # Remplace par profil_container si tu as créé la page profil
+    target_profil_view = sign_in_container  # Remplace par profil_container si tu as créé la page profil
 
     profil_navigation = [
         (btn_profil_result, result_container),
@@ -255,6 +269,34 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         ]
     )
 
+    # Fonction pour checker que tous les champs soient remplis dans l'inscription
+    def check_register_fields(n, fn, e, p):
+        if n and fn and e and p:
+            return gr.update(interactive=True)
+        return gr.update(interactive=False)
+    
+    gr.on(
+        triggers=[reg_name.change, reg_fname.change, reg_email.change, reg_pwd.change],
+        fn=check_register_fields,
+        inputs=[reg_name, reg_fname, reg_email, reg_pwd],
+        outputs=[btn_register]
+    )
+
+
+    # Fonction pour checker que tous les champs soient remplis dans la connexion
+    def check_login_fields(e, p):
+        if e and p:
+            return gr.update(interactive=True)
+        return gr.update(interactive=False)
+    
+    gr.on(
+        triggers=[si_email.change, si_pwd.change],
+        fn=check_login_fields,
+        inputs=[si_email, si_pwd],
+        outputs=[btn_login]
+    )
+
+
     # Bouton retour "← Quitter"
     btn_quit.click(
         fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
@@ -270,7 +312,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             generateQCM_container,
             revisionEtudiant_container,
             choiceTeacher_container,
-            sign_in_view
+            sign_in_container
         ]
     )
 
@@ -279,6 +321,21 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         inputs=None,
         outputs=[result_container, homepage_container]
     )
+
+
+    btn_login.click(
+        fn=handle_login,
+        inputs=[app_state, si_email, si_pwd],
+        outputs=[app_state, status]
+    )
+    
+    
+    btn_register.click(
+        fn=handle_register,
+        inputs=[app_state, reg_email, reg_pwd, reg_name, reg_fname],
+        outputs=[app_state, status]
+    )
+        
 
 if __name__ == "__main__":
     demo.launch(

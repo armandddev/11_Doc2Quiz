@@ -1,5 +1,6 @@
-from Doc2Quiz.context import UserContext, Role
-from Doc2Quiz.db import get_cursor
+from context import UserContext, Role
+from db import get_cursor
+import psycopg
 import bcrypt
 
 def sign_in(email: str, password: str) -> UserContext:
@@ -43,8 +44,8 @@ def sign_up(email: str, password: str, name: str, role: Role = Role.TEACHER) -> 
                 (email, password_hash, name, role.value),
             )
             row = cur.fetchone()
-    except Exception:
-        raise ValueError("Cet email est déjà utilisé.")
+    except psycopg.errors.UniqueViolation as e:
+        raise ValueError("Cet email est déjà utilisé.") from e
 
     return UserContext(
         user_id=row["id"],

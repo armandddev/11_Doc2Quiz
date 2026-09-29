@@ -10,21 +10,21 @@ def render_register_page():
         gr.HTML(f'<div class="logo-styles"><img src="data:image/png;base64,{b64}"></div>')
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            reg_name = gr.Textbox(
                 label = "Nom* : ",
                 placeholder = "Ex : Dupont", 
                 elem_id="labelName"
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            reg_fname = gr.Textbox(
                 label = "Prénom* : ",
                 placeholder = "Ex : Jean", 
                 elem_id="labelName"
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            reg_email = gr.Textbox(
                 label = "Adresse e-mail* :",
                 placeholder = "jean.dupont@mail.com",
                 type="email",
@@ -32,7 +32,7 @@ def render_register_page():
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Textbox(
+            reg_pwd = gr.Textbox(
                 label = "Mot de passe* :",
                 placeholder = "Entrer votre mot de passe..",
                 type="password",
@@ -40,10 +40,11 @@ def render_register_page():
             )
 
         with gr.Row(elem_id="widthPage"):
-            gr.Button(
+            btn_register = gr.Button(
                 "Créer mon profil",
                 variant="secondary",
-                elem_id="buttonCreateAccount"
+                elem_id="buttonCreateAccount",
+                interactive= False
             )
 
         with gr.Row(elem_id="widthPage"):
@@ -57,4 +58,4 @@ def render_register_page():
                 "Les champs mentionnés par (*) sont obligatoires",
             )
 
-    return register_container, btn_goto_login
+    return register_container,reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_goto_login
