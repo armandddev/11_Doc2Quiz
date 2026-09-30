@@ -30,7 +30,7 @@ def render_sign_in_page():
                 "Se connecter",
                 variant="secondary",
                 elem_id="buttonCreateAccount",
-                interactive= False
+                interactive= True,
             )
 
         with gr.Row(elem_id="widthPage"):

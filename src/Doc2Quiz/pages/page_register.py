@@ -44,7 +44,7 @@ def render_register_page():
                 "Créer mon profil",
                 variant="secondary",
                 elem_id="buttonCreateAccount",
-                interactive= False
+                interactive= True,
             )
 
         with gr.Row(elem_id="widthPage"):

@@ -19,6 +19,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    
 
   app:
     build:
@@ -28,20 +29,27 @@ services:
     command: python src/Doc2Quiz/ui_gradio.py
     ports:
       - "7860:7860"
-    env_file:
-      - .env
+    environment:
+      - DB_HOST=pg
+      - DB_PORT=5432
+      - DB_NAME=app_db
+      - DB_USER=app_user
+      - DB_PASSWORD=app_secret
     volumes:
       - ./data:/app/data
       - ./src/Doc2Quiz:/app/src/Doc2Quiz
     depends_on:
       pg:
         condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          cpus: "0.8"
-          memory: 1g
-    restart: unless-stopped
+
+  adminer:
+      image: adminer:latest
+      container_name: adminer
+      restart: unless-stopped
+      ports:
+        - "8080:8080"
+      depends_on:
+        - pg
 
 volumes:
   pg_data_Doc2Quiz:

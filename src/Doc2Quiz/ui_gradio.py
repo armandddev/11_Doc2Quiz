@@ -12,6 +12,7 @@ from pages.page_choiceTeacher import render_choiceTeacher
 from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
+from pages.page_profil import render_profil
 
 from Template.MOCK_Question import get_template_quiz
 
@@ -57,7 +58,6 @@ def load_question_view(questions: list, current_index: int):
     - qcm : active les options A/B/C/D et masque la saisie libre.
     - exercice / cours_libre : masque le QCM et affiche la grande zone de texte.
     """
-    # Cas où le quiz est fini ou vide
     if not questions or current_index >= len(questions):
         end_html = """
             <div class="question-header-card">
@@ -66,16 +66,14 @@ def load_question_view(questions: list, current_index: int):
         """
         return (
             gr.update(value=end_html),
-            gr.update(visible=False),  # qcm_block
-            gr.update(choices=[], value=None),  # qcm_radio
-            gr.update(visible=False),  # free_text_block
-            gr.update(value=""),  # free_text_input
+            gr.update(visible=False),
+            gr.update(choices=[], value=None),
+            gr.update(visible=False),
+            gr.update(value=""),
         )
 
     q = questions[current_index]
     num_str = f"Question {current_index + 1} -"
-
-    # Remplacement des sauts de ligne pour un affichage propre en HTML
     question_text = q.get("question", "").replace("\n", "<br>")
 
     header_html = f"""
@@ -85,27 +83,23 @@ def load_question_view(questions: list, current_index: int):
         </div>
     """
 
-    # Mode 1 : Question QCM
     if q.get("type") == "qcm":
         return (
             gr.update(value=header_html),
-            gr.update(visible=True),  # Affiche le conteneur QCM
-            gr.update(
-                choices=q.get("options", []), value=None
-            ),  # Remplit les options
-            gr.update(visible=False),  # Masque la zone de saisie libre
+            gr.update(visible=True),
+            gr.update(choices=q.get("options", []), value=None),
+            gr.update(visible=False),
             gr.update(value=""),
         )
 
-    # Mode 2 : Exercice ou Réponse libre
     default_placeholder = (
         "Rédigez votre démarche, calculs intermédiaires et résultat final ici..."
     )
     return (
         gr.update(value=header_html),
-        gr.update(visible=False),  # Masque le conteneur QCM
+        gr.update(visible=False),
         gr.update(choices=[], value=None),
-        gr.update(visible=True),  # Affiche la zone de saisie libre
+        gr.update(visible=True),
         gr.update(
             value="",
             placeholder=q.get("placeholder", default_placeholder),
@@ -116,52 +110,29 @@ def load_question_view(questions: list, current_index: int):
 
 ## Interface
 with gr.Blocks(title="11_Doc2Quiz") as demo:
-    current_session = AppContext(
-        user=UserContext(
-            user_id=1,
-            email="etudiant@univ.fr",
-            name="Gabin",
-            role=Role.STUDENT  # Role.TEACHER | Role.STUDENT
-        )
-    )
+    # Démarre avec une session non connectée pour utiliser la BDD
+    current_session = AppContext(user=None)
     app_state = gr.State(value=current_session)
     status = gr.Markdown()
-
 
     # États pour mémoriser les questions du quiz et l'étape actuelle
     quiz_questions_state = gr.State(value=[])
     quiz_index_state = gr.State(value=0)
 
-    # 1. Déballage avec les containers EN PREMIER et les boutons profil EN DERNIER
+    # 1. Rendu des pages
     result_container, result_details_html, btn_save, btn_discard, btn_profil_result = render_quiz_result()
     homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate, btn_profil_homePage = render_homePage()
     generateQCM_container, btn_generate_ok, btn_submit_correction, correction_input, btn_profil_QCM = render_QCM()    
     register_view, reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_to_login = render_register_page()
-    sign_in_container,si_email, si_pwd, btn_login,btn_goto_register = render_sign_in_page()
+    sign_in_container, si_email, si_pwd, btn_login, btn_goto_register = render_sign_in_page()
     revisionEtudiant_container, btn_export_student, btn_training, btn_profil_ChoiceEtudiant = render_choiceEtudiant()
     choiceTeacher_container, btn_export_teacher, btn_profil_ChoiceTeacher = render_choiceTeacher()
     exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM = render_exportQCM()
-    (
-        training_quiz_container,
-        btn_quit,
-        question_header_html,
-        qcm_block,
-        qcm_radio,
-        free_text_block,
-        free_text_input,
-        btn_validate,
-        feedback_html,
-        btn_profil_trainingQuiz
-    ) = render_training_quiz()
+    training_quiz_container, btn_quit, question_header_html, qcm_block, qcm_radio, free_text_block, free_text_input, btn_validate, feedback_html, btn_profil_trainingQuiz = render_training_quiz()
+    profil_container, btn_quit_profil, profil_title_html, user_info_html, btn_edit_profile, history_info_html, btn_delete_history, btn_delete_profile = render_profil()
 
-    # 2. Navigation Register / Login
+    # 2. Liens simples de bascule entre formulaires
     btn_to_login.click(
-        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
-        inputs=None,
-        outputs=[register_view, sign_in_container]
-    )
-
-    btn_register.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
         outputs=[register_view, sign_in_container]
@@ -169,8 +140,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     
     btn_goto_register.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
-        inputs = None,
-        outputs = [sign_in_container, register_view]
+        inputs=None,
+        outputs=[sign_in_container, register_view]
     )
 
     btn_to_generate.click(
@@ -190,16 +161,9 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         inputs=None,
         outputs=[choiceTeacher_container, exportQCM_container]
     )
-    
-    btn_login.click(
-        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
-        inputs=None,
-        outputs=[sign_in_container, homepage_container]
-    )
 
-    # 3. Redirection propre vers le profil (ferme la page actuelle et ouvre le profil)
-    target_profil_view = sign_in_container  # Remplace par profil_container si tu as créé la page profil
-
+    # 3. Redirection vers le profil
+    target_profil_view = profil_container 
     profil_navigation = [
         (btn_profil_result, result_container),
         (btn_profil_homePage, homepage_container),
@@ -217,15 +181,14 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             outputs=[current_page, target_profil_view]
         )
 
-
-    # Démarrage du quiz avec chargement de la première question
+    # 4. Quizz et navigation quiz
     def on_start_training(type_rev):
         data = get_template_quiz(type_rev or "Questions de cours")
         idx = 0
         h_up, qcm_v, radio_u, free_v, text_u = load_question_view(data, idx)
         return (
-            gr.update(visible=False),  # masque page de choix étudiant
-            gr.update(visible=True),   # affiche quiz
+            gr.update(visible=False),
+            gr.update(visible=True),
             data,
             idx,
             h_up,
@@ -248,8 +211,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             </div>
         '''
         return (
-            gr.update(visible=False),  # masque training_quiz_container
-            gr.update(visible=True),   # affiche result_container
+            gr.update(visible=False),
+            gr.update(visible=True),
             html_content
         )
 
@@ -269,35 +232,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         ]
     )
 
-    # Fonction pour checker que tous les champs soient remplis dans l'inscription
-    def check_register_fields(n, fn, e, p):
-        if n and fn and e and p:
-            return gr.update(interactive=True)
-        return gr.update(interactive=False)
-    
-    gr.on(
-        triggers=[reg_name.change, reg_fname.change, reg_email.change, reg_pwd.change],
-        fn=check_register_fields,
-        inputs=[reg_name, reg_fname, reg_email, reg_pwd],
-        outputs=[btn_register]
-    )
-
-
-    # Fonction pour checker que tous les champs soient remplis dans la connexion
-    def check_login_fields(e, p):
-        if e and p:
-            return gr.update(interactive=True)
-        return gr.update(interactive=False)
-    
-    gr.on(
-        triggers=[si_email.change, si_pwd.change],
-        fn=check_login_fields,
-        inputs=[si_email, si_pwd],
-        outputs=[btn_login]
-    )
-
-
-    # Bouton retour "← Quitter"
     btn_quit.click(
         fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
         inputs=None,
@@ -322,20 +256,60 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[result_container, homepage_container]
     )
 
+    # 5. Gestion Connexion avec validation BDD
+    def on_login_submit(ctx, email, pwd):
+        print(f"--> [LOGIN] Tentative pour : {email}", flush=True)
+        try:
+            updated_ctx, msg = handle_login(ctx, email, pwd)
+            print(f"--> [LOGIN OK] Connecté : {updated_ctx.user.name}", flush=True)
+            return (
+                updated_ctx,
+                gr.update(value=f"✅ {msg}", visible=True),
+                gr.update(visible=False),  # masque sign_in
+                gr.update(visible=True),   # affiche homepage
+            )
+        except Exception as e:
+            print(f"--> [LOGIN ERREUR] {e}", flush=True)
+            return (
+                ctx,
+                gr.update(value=f"❌ Erreur : {e}", visible=True),
+                gr.update(visible=True),
+                gr.update(visible=False),
+            )
 
     btn_login.click(
-        fn=handle_login,
+        fn=on_login_submit,
         inputs=[app_state, si_email, si_pwd],
-        outputs=[app_state, status]
+        outputs=[app_state, status, sign_in_container, homepage_container]
     )
-    
-    
+
+    # 6. Gestion Inscription avec insertion PostgreSQL
+    def on_register_submit(ctx, email, pwd, name, fname):
+        print(f"--> [REGISTER] Création pour : {email} ({fname} {name})", flush=True)
+        try:
+            updated_ctx, msg = handle_register(ctx, email, pwd, name, fname)
+            print(f"--> [REGISTER OK] Enregistré avec succès en BDD !", flush=True)
+            return (
+                updated_ctx,
+                gr.update(value=f"✅ {msg}", visible=True),
+                gr.update(visible=False),  # masque register
+                gr.update(visible=True),   # affiche sign_in
+            )
+        except Exception as e:
+            print(f"--> [REGISTER ERREUR] {e}", flush=True)
+            return (
+                ctx,
+                gr.update(value=f"❌ Erreur : {e}", visible=True),
+                gr.update(visible=True),
+                gr.update(visible=False),
+            )
+
     btn_register.click(
-        fn=handle_register,
+        fn=on_register_submit,
         inputs=[app_state, reg_email, reg_pwd, reg_name, reg_fname],
-        outputs=[app_state, status]
+        outputs=[app_state, status, register_view, sign_in_container],
     )
-        
+
 
 if __name__ == "__main__":
     demo.launch(

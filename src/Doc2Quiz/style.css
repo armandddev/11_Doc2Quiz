@@ -64,7 +64,6 @@
     margin: 0 auto !important;
 }
 
-/* Zone de dépôt de fichier */
 #file_upload_zone {
     background-color: #FFFFFF !important;
     border: 2px dashed #000000 !important;
@@ -75,7 +74,6 @@
     align-items: center !important;
 }
 
-/* Bloc Révision */
 #revision_box {
     background: #FFFFFF !important;
     border: 2px solid #000000 !important;
@@ -95,7 +93,6 @@
     color: #000000;
 }
 
-/* Options radio (sans aucun fond gris résiduel) */
 #revision_options,
 #revision_options .wrap,
 #revision_options .form {
@@ -125,7 +122,6 @@
     padding: 0 !important;
 }
 
-/* Sélecteur de difficulté */
 #ChoiceDifficulty {
     display: flex;
     text-align: left;
@@ -146,7 +142,6 @@
 /* ==========================================================================
    PAGE DE CORRECTION (QCM)
    ========================================================================== */
-/* Conteneur blanc avec bordure noire */
 #correction_bar {
     width: 80% !important;
     margin: 20px auto !important;
@@ -159,7 +154,6 @@
     gap: 10px !important;
 }
 
-/* Champ texte sans bordure interne */
 #correction_text,
 #correction_text input,
 #correction_text .wrap {
@@ -175,7 +169,6 @@
     color: #777777 !important;
 }
 
-/* Bouton rond bleu avec flèche */
 #btn_send_correction {
     width: 38px !important;
     height: 38px !important;
@@ -220,7 +213,6 @@
     gap: 40px !important;
 }
 
-/* Cadre central du PDF */
 .export-box-pdf {
     width: 60%;
     margin: 15px auto 25px auto;
@@ -245,7 +237,6 @@
     margin: 0;
 }
 
-/* Alignement horizontal des 3 boutons de choix */
 #export_format_selector {
     background: transparent !important;
     border: none !important;
@@ -262,7 +253,6 @@
     width: 100% !important;
 }
 
-/* Style de base de chaque bloc (blanc, bordure noire) */
 #export_format_selector label {
     flex: 1 !important;
     background-color: #FFFFFF !important;
@@ -277,12 +267,10 @@
     transition: background-color 0.2s ease !important;
 }
 
-/* Masquer le cercle radio natif */
 #export_format_selector input[type="radio"] {
     display: none !important;
 }
 
-/* Texte des boutons */
 #export_format_selector label span {
     font-weight: 600 !important;
     color: #000000 !important;
@@ -290,13 +278,11 @@
     text-align: center !important;
 }
 
-/* État sélectionné (vert) */
 #export_format_selector label:has(input:checked),
 #export_format_selector label.selected {
     background-color: #71C66C !important;
 }
 
-/* Ligne et bouton EXPORTER doré */
 #export_action_row {
     width: 100% !important;
     display: flex !important;
@@ -321,7 +307,6 @@
 /* ==========================================================================
    PAGE D'ENTRAINEMENT (QCM)
    ========================================================================== */
-/* Bouton "← Quitter" en haut à gauche */
 #training_header_row {
     align-items: center !important;
     margin-bottom: 25px !important;
@@ -339,7 +324,6 @@
     text-align: left !important;
 }
 
-/* Cartouche bleu de la question */
 .question-header-card {
     background-color: #8596C7;
     width: 60%;
@@ -364,8 +348,6 @@
     line-height: 1.3;
 }
 
-/* Zone Radio QCM */
-/* Conteneur principal */
 #qcm_custom_radio {
     width: 60% !important;
     margin: 0 auto 30px auto !important;
@@ -378,10 +360,9 @@
     flex-direction: column !important;
     gap: 16px !important;
     width: 100% !important;
-    counter-reset: qcm-counter !important; /* Compteur pour A, B, C, D */
+    counter-reset: qcm-counter !important; 
 }
 
-/* Boîte de chaque réponse */
 #qcm_custom_radio label {
     display: flex !important;
     align-items: stretch !important;
@@ -396,14 +377,12 @@
     transition: background-color 0.15s ease !important;
 }
 
-/* Cache le rond radio natif */
 #qcm_custom_radio input[type="radio"] {
     position: absolute !important;
     opacity: 0 !important;
     pointer-events: none !important;
 }
 
-/* Badge bleu A, B, C, D généré dynamiquement */
 #qcm_custom_radio label::before {
     counter-increment: qcm-counter !important;
     content: counter(qcm-counter, upper-alpha) !important;
@@ -419,7 +398,6 @@
     border-right: 1.5px solid #000000 !important;
 }
 
-/* Texte de la réponse */
 #qcm_custom_radio label span {
     flex-grow: 1 !important;
     display: flex !important;
@@ -432,19 +410,16 @@
     text-align: center !important;
 }
 
-/* État sélectionné : l'ensemble passe au VERT */
 #qcm_custom_radio label:has(input:checked),
 #qcm_custom_radio label.selected {
     background-color: #71C66C !important;
 }
 
-/* Changement de couleur du badge au clic pour s'accorder au vert */
 #qcm_custom_radio label:has(input:checked)::before,
 #qcm_custom_radio label.selected::before {
     background-color: #5ea859 !important;
 }
 
-/* Conteneur de l'exercice */
 #quiz_exercise_input {
     width: 60% !important;
     margin: 10px auto 35px auto !important;
@@ -453,7 +428,6 @@
     box-shadow: none !important;
 }
 
-/* Zone textarea blanche à bordure noire */
 #quiz_exercise_input textarea {
     background-color: #FFFFFF !important;
     border: 1.5px solid #000000 !important;
@@ -467,7 +441,7 @@
     resize: vertical !important;
 }
 
-/* Texte indicatif (placeholder) */
+
 #quiz_exercise_input textarea::placeholder {
     color: #555555 !important;
     font-size: 1.25rem !important;
@@ -476,11 +450,6 @@
 }
 
 
-
-
-
-
-/* Zone récapitulative du résultat */
 .result-recap-box {
     text-align: center;
     margin: 40px auto 50px auto;
@@ -503,7 +472,6 @@
     font-weight: 700;
 }
 
-/* Ligne des boutons d'action */
 #result_actions_row {
     width: 65% !important;
     margin: 30px auto !important;
@@ -512,7 +480,6 @@
     gap: 40px !important;
 }
 
-/* Bouton Vert : Enregistrer dans mon profil */
 #btn_save_result {
     background-color: #8EB78B !important;
     color: #000000 !important;
@@ -524,7 +491,6 @@
     width: 48% !important;
 }
 
-/* Bouton Rouge : Ne pas sauvegarder */
 #btn_discard_result {
     background-color: #E25D5D !important;
     color: #000000 !important;
@@ -534,4 +500,120 @@
     font-size: 1.2rem !important;
     height: 70px !important;
     width: 48% !important;
+}
+
+#user_card_container {
+    background-color: #dcd7d4 !important;
+    border: 1.5px solid #222222 !important;
+    border-radius: 0px !important;
+    padding: 16px 24px !important;
+    margin: 15px 0 25px 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 20px !important;
+}
+
+.user-id-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.user-avatar {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background-color: #84b6db;
+    border: 1.5px solid #222222;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.user-fullname {
+    font-size: 1.35rem;
+    font-weight: 600;
+    color: #000000;
+    margin: 0 0 6px 0;
+}
+
+.user-meta {
+    font-size: 1.05rem;
+    color: #222222;
+    margin: 0;
+    font-weight: 400;
+}
+
+#btn_edit_profile {
+    background-color: #b8b0ab !important;
+    border: 1.5px solid #222222 !important;
+    border-radius: 0px !important;
+    color: #000000 !important;
+    padding: 12px 32px !important;
+    font-size: 1.25rem !important;
+    font-weight: 500 !important;
+    box-shadow: none !important;
+    cursor: pointer !important;
+    max-width: 160px !important;
+}
+
+#btn_edit_profile:hover {
+    background-color: #a89f9a !important;
+}
+
+#danger_zone_container {
+    background-color: #dcd7d4;
+    border: 1.5px solid red !important;
+    border-radius: 8px;
+    padding: 24px;
+    margin-top: 24px;
+}
+
+.danger-box-row {
+    background-color: #dcd7d4;
+    border: 1px solid gray;
+    border-radius: 6px;
+    padding: 16px 20px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+#btn_delete_history {
+    background-color: #ffffff !important;
+    border: 1px solid #ef4444 !important;
+    color: #ef4444 !important;
+    font-weight: 500 !important;
+    padding: 6px 24px !important;
+    max-width: 140px;
+}
+
+#btn_delete_history:hover {
+    background-color: #fef2f2 !important;
+}
+
+#btn_delete_profile {
+    background-color: #ef4444 !important;
+    border: none !important;
+    color: #ffffff !important;
+    font-weight: 500 !important;
+    padding: 8px 20px !important;
+    max-width: 180px;
+}
+
+#btn_delete_profile:hover {
+    background-color: #dc2626 !important;
 }
