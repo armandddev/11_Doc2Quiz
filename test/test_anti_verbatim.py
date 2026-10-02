@@ -1,4 +1,3 @@
-# tests/test_anti_verbatim.py
 from Doc2Quiz.service.anti_verbatim import get_ngrams, similarity_ratio, is_too_similar
 from unittest.mock import patch
 import pytest

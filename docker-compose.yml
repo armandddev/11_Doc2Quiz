@@ -35,6 +35,7 @@ services:
       - DB_NAME=app_db
       - DB_USER=app_user
       - DB_PASSWORD=app_secret
+      - PYTHONPATH=/app/src
     volumes:
       - ./data:/app/data
       - ./src/Doc2Quiz:/app/src/Doc2Quiz

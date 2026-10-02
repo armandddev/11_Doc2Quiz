@@ -146,6 +146,20 @@ class OllamaWrapper:
             return False
         except OllamaResponseError:
             return True
+        
+    # ------------------------------------------------------------------
+    # Liste des models
+    # ------------------------------------------------------------------
+        
+    def list_models(self) -> list[str]:
+        """Retourne la liste des noms de modèles disponibles sur le serveur."""
+        try:
+            payload = self._request("GET", "/api/tags")
+            models = payload.get("models", [])
+            return [m.get("name") for m in models if "name" in m]
+        except Exception as e:
+            logger.error("Impossible de récupérer la liste des modèles : %s", e)
+            return []
 
     # ------------------------------------------------------------------
     # Génération texte
@@ -407,17 +421,11 @@ class OllamaWrapper:
 # ---------------------------------------------------------------------------
 # Démo rapide
 # ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s | %(message)s")
-    client = OllamaWrapper()
-    print(f"URL    : {client.base_url}")
-    print(f"Modèle : {client.default_model}")
-
-    if not client.is_server_running():
-        print("❌ Serveur Ollama inaccessible.")
-    else:
-        print("✅ Serveur accessible.")
-        result = client.generate_text("Donne une définition de l'IA en une phrase.")
-        print("Réponse :", result.response)
         
+if __name__ == "__main__":
+    client = OllamaWrapper()
+
+    print(f"URL serveur : {client.base_url}\n")
+
+    models = client.list_models()
+    print(models)
