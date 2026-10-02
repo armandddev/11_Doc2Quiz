@@ -2,7 +2,11 @@ import base64
 from pathlib import Path
 import gradio as gr
 
+from shared.qcm import enregistrer_modification
+
+
 def render_choiceTeacher():
+    """Construit la page enseignant et renvoie ses composants interactifs."""
     with gr.Column(visible=False) as choiceTeacher_container:
         with gr.Row():
             ## Titre DOC2QUIZ + bouton "Mon profil"
@@ -39,6 +43,30 @@ def render_choiceTeacher():
 
         gr.HTML(html_viewer)
 
+        gr.Markdown("### Modifier le QCM")
+        question_selector = gr.Dropdown(
+            choices=[],
+            label="Question à corriger",
+            interactive=True,
+        )
+        question_input = gr.Textbox(label="Énoncé", lines=3, interactive=True)
+        options_input = gr.Textbox(
+            label="Options (une par ligne)",
+            lines=4,
+            interactive=True,
+        )
+        answer_input = gr.Textbox(label="Bonne réponse proposée par l'IA", interactive=False)
+        error_input = gr.Textbox(
+            label="Décrivez l'erreur",
+            placeholder="Exemple : la bonne réponse devrait être...",
+            lines=3,
+        )
+        with gr.Row():
+            save_question_button = gr.Button(
+                "Corriger avec l'IA", variant="primary"
+            )
+            modification_status = gr.Markdown()
+
         with gr.Row(elem_id="student_actions"):
             btn_export = gr.Button(
                             "Exporter le QCM",
@@ -46,4 +74,15 @@ def render_choiceTeacher():
                             elem_id="buttonExport"
                         )
 
-    return choiceTeacher_container, btn_export, btn_profil_ChoiceTeacher
+    return (
+        choiceTeacher_container,
+        btn_export,
+        btn_profil_ChoiceTeacher,
+        question_selector,
+        question_input,
+        options_input,
+        answer_input,
+        error_input,
+        save_question_button,
+        modification_status,
+    )

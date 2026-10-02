@@ -8,7 +8,7 @@ from pages.page_sign_in import render_sign_in_page
 from pages.page_homePage import render_homePage
 from pages.page_choiceStudent import render_choiceEtudiant
 from pages.page_QCM import render_QCM
-from pages.page_choiceTeacher import render_choiceTeacher
+from pages.page_choiceTeacher import render_choiceTeacher, enregistrer_modification
 from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
@@ -108,6 +108,39 @@ def load_question_view(questions: list, current_index: int):
     )
 
 
+def charger_question_editeur(questions: list[dict], question_index: int):
+    """Prépare les valeurs affichées pour la question sélectionnée."""
+    if not questions or question_index is None:
+        return "", "", ""
+
+    item = questions[int(question_index)]
+    options = item.get("options", [])
+    return (
+        item.get("question", ""),
+        "\n".join(options),
+        item.get("bonne_reponse", ""),
+    )
+
+
+def charger_editeur_qcm(questions: list[dict]):
+    """Charge la liste des questions et sélectionne la première par défaut."""
+    if not questions:
+        return (
+            gr.update(choices=[], value=None),
+            *charger_question_editeur([], None),
+            "",
+            "Aucun QCM à modifier.",
+        )
+
+    choices = [(f"Question {index + 1}", index) for index in range(len(questions))]
+    return (
+        gr.update(choices=choices, value=0),
+        *charger_question_editeur(questions, 0),
+        "",
+        "",
+    )
+
+
 ## Interface
 with gr.Blocks(title="11_Doc2Quiz") as demo:
     # Démarre avec une session non connectée pour utiliser la BDD
@@ -126,7 +159,18 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     register_view, reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_to_login = render_register_page()
     sign_in_container, si_email, si_pwd, btn_login, btn_goto_register = render_sign_in_page()
     revisionEtudiant_container, btn_export_student, btn_training, btn_profil_ChoiceEtudiant = render_choiceEtudiant()
-    choiceTeacher_container, btn_export_teacher, btn_profil_ChoiceTeacher = render_choiceTeacher()
+    (
+        choiceTeacher_container,
+        btn_export_teacher,
+        btn_profil_ChoiceTeacher,
+        question_selector,
+        question_input,
+        options_input,
+        answer_input,
+        error_input,
+        save_question_button,
+        modification_status,
+    ) = render_choiceTeacher()
     exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM = render_exportQCM()
     training_quiz_container, btn_quit, question_header_html, qcm_block, qcm_radio, free_text_block, free_text_input, btn_validate, feedback_html, btn_profil_trainingQuiz = render_training_quiz()
     profil_container, btn_quit_profil, profil_title_html, user_info_html, btn_edit_profile, history_info_html, btn_delete_history, btn_delete_profile = render_profil()
@@ -248,6 +292,41 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             choiceTeacher_container,
             sign_in_container
         ]
+    )
+
+    btn_generate_ok.click(
+        fn=charger_editeur_qcm,
+        inputs=[quiz_questions_state],
+        outputs=[
+            question_selector,
+            question_input,
+            options_input,
+            answer_input,
+            error_input,
+            modification_status,
+        ],
+    )
+
+    question_selector.change(
+        fn=charger_question_editeur,
+        inputs=[quiz_questions_state, question_selector],
+        outputs=[question_input, options_input, answer_input],
+    )
+
+    save_question_button.click(
+        fn=enregistrer_modification,
+        inputs=[
+            quiz_questions_state,
+            question_selector,
+            error_input,
+        ],
+        outputs=[
+            quiz_questions_state,
+            question_input,
+            options_input,
+            answer_input,
+            modification_status,
+        ],
     )
 
     btn_discard.click(
