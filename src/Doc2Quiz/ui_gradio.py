@@ -2,6 +2,7 @@ from pathlib import Path
 import gradio as gr
 from service.auth_service import handle_login, handle_register
 from context import AppContext, Role, UserContext
+from zoneinfo import ZoneInfo
 
 from pages.page_register import render_register_page
 from pages.page_sign_in import render_sign_in_page
@@ -13,6 +14,10 @@ from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
 from pages.page_profil import render_profil
+from auth import update_user_profile
+from auth import delete_user_account
+
+from db import get_connection
 
 from Template.MOCK_Question import get_template_quiz
 
@@ -139,6 +144,76 @@ def load_question_view(questions: list, current_index: int):
         ),
     )
 
+def update_profile_view(ctx: AppContext):
+    user = ctx.user if ctx and ctx.user else None
+
+    if not user:
+        title_html = "<h1>Mon profil</h1><p>Non connecté</p>"
+        info_html = (
+            "<div class='profile-card'><p>Veuillez vous connecter pour voir votre"
+            " profil.</p></div>"
+        )
+        history_html = ""
+        return title_html, info_html, history_html
+
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT created_at FROM users WHERE id = %s",
+                (user.user_id,),
+            )
+            row = cur.fetchone()
+
+    created_at = (
+        row["created_at"] if isinstance(row, dict) else row[0]
+    ) if row else None
+
+    if created_at:
+        created_at = created_at.astimezone(ZoneInfo("Europe/Paris"))
+
+    mois = [
+        "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+    ]
+
+    membre_depuis = (
+        f"Membre depuis le {created_at.day} "
+        f"{mois[created_at.month - 1]} {created_at.year} "
+        f"à {created_at:%H:%M}"
+        if created_at else ""
+    )
+
+    initials = "".join(
+        part[0].upper() for part in user.name.split()[:2]
+    ) or "U"
+    role_label = "Enseignant" if user.role == Role.TEACHER else "Étudiant"
+
+    title_html = f"""
+        <div class="profile-header">
+            <h1>Mon profil</h1>
+            <p>Statut - <strong>{role_label}</strong></p>
+        </div>
+    """
+
+    info_html = f"""
+        <div style="display: flex; align-items: center; gap: 15px; padding: 10px;">
+            <div style="background-color: #6ba4d9; color: white; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px;">
+                {initials}
+            </div>
+            <div>
+                <h3 style="margin: 0;">{user.name}</h3>
+                <p style="margin: 0; color: #555;">{user.email}</p>
+                <p style="margin: 12px 0 0; color: #555;">{membre_depuis}</p>
+            </div>
+        </div>
+    """
+
+    history_html = """
+        <p>Historique des sessions disponible.</p>
+    """
+
+    return title_html, info_html, history_html
+
 
 def charger_question_editeur(questions: list[dict], question_index: int):
     if not questions or question_index is None:
@@ -210,7 +285,24 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     ) = render_choiceTeacher()
     exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM = render_exportQCM()
     training_quiz_container, btn_quit, question_header_html, qcm_block, qcm_radio, free_text_block, free_text_input, btn_validate, feedback_html, btn_profil_trainingQuiz = render_training_quiz()
-    profil_container, btn_quit_profil, profil_title_html, user_info_html, btn_edit_profile, history_info_html, btn_delete_history, btn_delete_profile = render_profil()
+    (
+       profil_container,
+       btn_quit_profil,
+       profil_title_html,
+       user_info_html,
+       btn_edit_profile,
+       history_info_html,
+       btn_delete_history,
+       btn_delete_profile,
+       view_profile_box,
+       edit_profile_box,
+       edit_fname,
+       edit_name,
+       edit_email,
+       edit_pwd,
+       btn_save_profile,
+       btn_cancel_edit,
+   ) = render_profil()
 
     btn_to_login.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
@@ -269,29 +361,42 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[choiceTeacher_container, exportQCM_container]
     )
 
-    btn_login.click(
-        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
-        inputs=None,
-        outputs=[sign_in_container, homepage_container]
-    )
-
+    # 3. Redirection vers le profil
     target_profil_view = profil_container
     profil_navigation = [
-        (btn_profil_result,         result_container),
-        (btn_profil_homePage,       homepage_container),
-        (btn_profil_QCM,            generateQCM_container),
+        (btn_profil_result, result_container),
+        (btn_profil_homePage, homepage_container),
+        (btn_profil_QCM, generateQCM_container),
         (btn_profil_ChoiceEtudiant, revisionEtudiant_container),
         (btn_profil_ChoiceTeacher,  choiceTeacher_container),
         (btn_profil_exportQCM,      exportQCM_container),
         (btn_profil_trainingQuiz,   training_quiz_container),
     ]
 
+
+    def go_to_profil(ctx):
+      t_html, u_html, h_html = update_profile_view(ctx)
+      return (
+          gr.update(visible=False),  # masque page courante
+          gr.update(visible=True),  # affiche profil
+          t_html,  # profil_title_html
+          u_html,  # user_info_html
+          h_html,  # history_info_html
+      )
+
+
     for btn, current_page in profil_navigation:
-        btn.click(
-            fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
-            inputs=None,
-            outputs=[current_page, target_profil_view]
-        )
+      btn.click(
+          fn=go_to_profil,
+          inputs=[app_state],
+          outputs=[
+              current_page,
+              target_profil_view,
+              profil_title_html,
+              user_info_html,
+              history_info_html,
+          ],
+      )
 
     def on_start_training(type_rev):
         data = get_template_quiz(type_rev or "Questions de cours")
@@ -389,30 +494,44 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[result_container, homepage_container]
     )
 
+    btn_quit_profil.click(
+        fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
+        inputs=None,
+        outputs=[profil_container, homepage_container],
+    )
+
+    # 5. Gestion Connexion avec validation BDD
     def on_login_submit(ctx, email, pwd):
-        print(f"--> [LOGIN] Tentative pour : {email}", flush=True)
         try:
             updated_ctx, msg = handle_login(ctx, email, pwd)
-            print(f"--> [LOGIN OK] Connecté : {updated_ctx.user.name}", flush=True)
+
+            # Vérification que le compte est bien en session
+            print(
+                f"[SESSION ACTIVE] ID: {updated_ctx.user.user_id} | Nom:"
+                f" {updated_ctx.user.name} | Rôle: {updated_ctx.user.role}",
+                flush=True,
+            )
+
+            # Masque le formulaire de connexion et affiche la page d'accueil
             return (
                 updated_ctx,
                 gr.update(value=f"✅ {msg}", visible=True),
-                gr.update(visible=False),
-                gr.update(visible=True),
+                gr.update(visible=False),  # sign_in_container
+                gr.update(visible=True),  # homepage_container
             )
         except Exception as e:
-            print(f"--> [LOGIN ERREUR] {e}", flush=True)
             return (
                 ctx,
-                gr.update(value=f"❌ Erreur : {e}", visible=True),
+                gr.update(value=f"❌ {e}", visible=True),
                 gr.update(visible=True),
                 gr.update(visible=False),
             )
 
+
     btn_login.click(
         fn=on_login_submit,
         inputs=[app_state, si_email, si_pwd],
-        outputs=[app_state, status, sign_in_container, homepage_container]
+        outputs=[app_state, status, sign_in_container, homepage_container],
     )
 
     def on_register_submit(ctx, email, pwd, name, fname):
@@ -439,6 +558,158 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         fn=on_register_submit,
         inputs=[app_state, reg_email, reg_pwd, reg_name, reg_fname],
         outputs=[app_state, status, register_view, sign_in_container],
+    )
+
+    # 1. Clic sur "Modifier" : Pré-remplit les champs avec l'utilisateur connecté
+    def open_edit_mode(ctx: AppContext):
+      if not ctx or not ctx.user:
+        return (
+            gr.update(visible=True),
+            gr.update(visible=False),
+            "",
+            "",
+            "",
+            "",
+        )
+
+      names = ctx.user.name.split(" ", 1)
+      first_name = names[0]
+      last_name = names[1] if len(names) > 1 else ""
+
+      return (
+          gr.update(visible=False),  # masque la vue profil normale
+          gr.update(visible=True),  # affiche le formulaire de modification
+          first_name,
+          last_name,
+          ctx.user.email,
+          "",  # champ mot de passe vide par défaut
+      )
+
+
+    btn_edit_profile.click(
+        fn=open_edit_mode,
+        inputs=[app_state],
+        outputs=[
+            view_profile_box,
+            edit_profile_box,
+            edit_fname,
+            edit_name,
+            edit_email,
+            edit_pwd,
+        ],
+    )
+
+    # 2. Clic sur "Annuler" : Rebascule sur l'affichage sans modifier
+    btn_cancel_edit.click(
+        fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
+        inputs=None,
+        outputs=[view_profile_box, edit_profile_box],
+    )
+
+
+    # 3. Clic sur "Enregistrer" : Met à jour la BDD, app_state et l'affichage HTML
+    def on_save_profile(ctx: AppContext, fname, lname, email, new_pwd):
+      try:
+        updated_user = update_user_profile(
+            user_id=ctx.user.user_id,
+            first_name=fname,
+            last_name=lname,
+            email=email,
+            new_password=new_pwd,
+        )
+        ctx.user = updated_user
+        t_html, u_html, h_html = update_profile_view(ctx)
+        return (
+            ctx,
+            gr.update(visible=True),  
+            gr.update(visible=False),  
+            t_html,
+            u_html,
+            gr.update(value="✅ Profil mis à jour avec succès !", visible=True),
+        )
+      except Exception as e:
+        return (
+            ctx,
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(),
+            gr.update(),
+            gr.update(value=f"❌ Erreur : {e}", visible=True),
+        )
+
+
+    btn_save_profile.click(
+        fn=on_save_profile,
+        inputs=[app_state, edit_fname, edit_name, edit_email, edit_pwd],
+        outputs=[
+            app_state,
+            view_profile_box,
+            edit_profile_box,
+            profil_title_html,
+            user_info_html,
+            status,
+        ],
+    )
+
+    confirmation_suppression = gr.Checkbox(value=False, visible=False)
+
+    def on_delete_profile(ctx: AppContext, confirmed: bool):
+        if not confirmed:
+            return ctx, gr.skip(), gr.skip(), gr.skip()
+
+        
+        if not ctx or not ctx.user:
+            return (
+                ctx,
+                gr.update(visible=True),  
+                gr.update(visible=False), 
+                gr.update(
+                    value="❌ Erreur : aucun utilisateur connecté.", visible=True
+                ),
+            )
+
+        try:
+            user_id = ctx.user.user_id
+            delete_user_account(user_id)
+
+            cleared_ctx = AppContext(user=None)
+
+            return (
+                cleared_ctx,
+                gr.update(visible=False), 
+                gr.update(visible=True),  
+                gr.update(
+                    value="✅ Votre compte a été définitivement supprimé.",
+                    visible=True,
+                ),
+            )
+        except Exception as e:
+            return (
+                ctx,
+                gr.update(visible=True),
+                gr.update(visible=False),
+                gr.update(
+                    value=f"❌ Erreur lors de la suppression : {e}", visible=True
+                ),
+            )
+
+
+    btn_delete_profile.click(
+        fn=on_delete_profile,
+        inputs=[app_state, confirmation_suppression],
+        outputs=[
+            app_state,
+            profil_container,
+            sign_in_container,
+            status,
+        ],
+        js="""(ctx, confirmed) => {
+            const confirmation = window.confirm(
+                "Voulez-vous vraiment supprimer votre compte ? "
+                + "Cette action est définitive."
+            );
+            return [ctx, confirmation];
+        }""",
     )
 
 
