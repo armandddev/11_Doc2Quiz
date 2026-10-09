@@ -6,7 +6,9 @@ def handle_login(
     ctx: AppContext, email: str, password: str
 ) -> tuple[AppContext, str]:
   if not email or not password:
-    raise ValueError("Tous les champs sont obligatoires.")
+    raise ValueError("Veuillez renseigner tous les champs.")
+
+  # ctx.user stocke l'ID, le nom complet, le mail et le rôle issus du SELECT
   ctx.user = sign_in(email, password)
   return ctx, f"Bienvenue {ctx.user.name} !"
 
