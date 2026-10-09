@@ -1,105 +1,72 @@
+import json
 from .models import Section
 from .summary import summarize_text
 
 
-def segment_text(text: str, titles: list[dict], summary_generator=None) -> list[dict]:
-    # Cas ou il n'y a aucun texte
+def segment_text(text: str, titles: list[dict], summary_generator=None, llm_client=None) -> list[dict]:
     if not text.strip():
         return []
-    
-    # Cas ou il y a des titres 
-    if titles:
-        sections = _sections_from_titles(text, titles, summary_generator)
+
+    if llm_client is not None:
+        sections = _segment_with_llm(text, llm_client, summary_generator)
         if sections:
             return sections
 
-    return _sections_from_paragraphs(text, summary_generator)
+    return []
 
-# Fonction qui va découper lorsqu'il y a des titres
-def _sections_from_titles(text: str, titles: list[dict], summary_generator) -> list[dict]:
-    lines = text.splitlines()
-    title_lines = []
-    next_line_to_check = 0
 
-    # Trouve chaque titre dans l'ordre où il apparaît dans le texte.
-    for title in titles:
-        for line_number in range(next_line_to_check, len(lines)):
-            if lines[line_number].strip() == title["text"].strip():
-                title_lines.append((line_number, title))
-                next_line_to_check = line_number + 1
-                break
+def _segment_with_llm(text: str, llm_client, summary_generator) -> list[dict]:
+    CHUNK_SIZE = 6000
+    OVERLAP    = 200
 
-    sections = []
-    for index, (title_line, title) in enumerate(title_lines):
-        # Détermine la fin de la section en fonction du titre suivant
-        if index + 1 < len(title_lines):
-            next_title_line = title_lines[index + 1][0]
-        else:
-            next_title_line = len(lines)
+    chunks = []
+    i = 0
+    while i < len(text):
+        chunks.append(text[i:i + CHUNK_SIZE])
+        i += CHUNK_SIZE - OVERLAP
 
-        section_lines = lines[title_line:next_title_line]
-        section_text = "\n".join(section_lines).strip()
-
-        sections.append(
-            _make_section(
-                index + 1,
-                title["text"],
-                title["level"],
-                section_text,
-                summary_generator,
-                None,
-                [title["page"]],
-            )
+    all_items = []
+    for chunk in chunks:
+        prompt = (
+            "Tu es un enseignant. Découpe ce texte de cours en sections fines.\n"
+            "Chaque concept, chaque notion, chaque point numéroté doit être une section séparée.\n"
+            "Une page peut contenir plusieurs sections.\n"
+            "Réponds UNIQUEMENT avec un tableau JSON, sans markdown :\n"
+            '[{"titre": "...", "contenu": "..."}]\n\n'
+            "Règles :\n"
+            "- Une section = un seul concept ou notion\n"
+            "- Le contenu doit être le texte original, pas un résumé\n"
+            "- Minimum 3 mots par section\n\n"
+            f"{chunk}"
         )
+        try:
+            res = llm_client.generate_text(prompt)
+            raw = res.response if hasattr(res, "response") else str(res)
 
-    return sections
-
-# Fonction qui va découper quand il n'y a pas de titre 
-def _sections_from_paragraphs(text: str, summary_generator) -> list[dict]:
-    paragraphs = []
-    for part in text.split("\n\n"):
-        cleaned_part = part.strip()
-        if cleaned_part:
-            # Cas ou il y a du texte -> On ajoute le texte à la liste des paragraphes
-            paragraphs.append(cleaned_part)
+            start = raw.find("[")
+            if start == -1:
+                continue
+            fragment = raw[start:].rstrip()
+            if not fragment.endswith("]"):
+                last = fragment.rfind("},")
+                fragment = (fragment[:last + 1] if last != -1 else fragment) + "]"
+            items = json.loads(fragment)
+            all_items.extend(items)
+        except Exception:
+            continue
 
     sections = []
-    current_words = []
-
-    for paragraph in paragraphs:
-        # Transformation en liste de mots
-        words = paragraph.split()
-        # Cas ou n paragraphes font moins de 250 mots -> On les regroupe dans une section
-        if current_words and len(current_words) + len(words) > 250:
-            section_index = len(sections) + 1
-            section = _make_fallback_section(section_index, current_words, summary_generator)
-            sections.append(section)
-            current_words = []
-
-        current_words.extend(words)
-    # Dernière section avec les mots restants 
-    if current_words:
-        section_index = len(sections) + 1
-        section = _make_fallback_section(section_index, current_words, summary_generator)
-        sections.append(section)
-
+    for idx, item in enumerate(all_items, start=1):
+        contenu = item.get("contenu", "").strip()
+        if not contenu:
+            continue
+        sections.append(_make_section(
+            idx, item.get("titre") or f"Section {idx}",
+            None, contenu, summary_generator, [], []
+        ))
     return sections
 
 
-# Fonctions utile dans le cas ou il n'y a pas de titre de type H1, ...
-def _make_fallback_section(index: int, words: list[str], summary_generator) -> dict:
-    text = " ".join(words)
-    return _make_section(
-        index,
-        f"Section {index}",
-        None,
-        text,
-        summary_generator,
-        [],
-        [],
-    )
-
-# Permet de créer un objet de type Section 
 def _make_section(index, title, level, text, summary_generator, notion_ids, pages) -> dict:
     section = Section(
         id=f"section-{index:03d}",
@@ -110,5 +77,4 @@ def _make_section(index, title, level, text, summary_generator, notion_ids, page
         notion_ids=notion_ids,
         pages=pages,
     )
-    # Convertion de l'objet en un dictionnaire
     return section.to_dict()

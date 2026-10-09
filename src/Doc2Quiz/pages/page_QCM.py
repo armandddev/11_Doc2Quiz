@@ -1,4 +1,3 @@
-import base64
 from pathlib import Path
 import gradio as gr
 
@@ -8,12 +7,16 @@ def render_qcm_html(questions: list[dict]) -> str:
     Destiné à la page de relecture/correction par l'enseignant.
     """
     if not questions:
-        return (
-            "<p style='text-align:center;color:#888;padding:60px;font-size:1rem;'>"
-            "Aucune question n'a pu être générée.</p>"
-        )
- 
-    parts = ['<div style="max-width:820px;margin:0 auto;padding:20px 10px;">']
+        return "<p style='text-align:center;color:#888;padding:60px'>Aucune question générée.</p>"
+
+    mathjax = '''
+    <script>
+      MathJax = { tex: { inlineMath: [["$","$"],["\\\\(","\\\\)"]] } };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    '''
+
+    parts = [mathjax, '<div style="max-width:820px;margin:0 auto;padding:20px 10px;">']
  
     for i, q in enumerate(questions):
         question_text  = (q.get("question") or "").replace("\n", "<br>")

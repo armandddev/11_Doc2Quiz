@@ -48,6 +48,7 @@ def on_generate_qcm_and_display(app_context):
         app_context.sections = questions
         html = render_qcm_html(questions)
     except Exception as e:
+        import traceback
         print(f"[ERREUR] Génération QCM : {e}", flush=True)
         html = (
             f"<p style='color:red;text-align:center;padding:30px'>"
@@ -55,6 +56,7 @@ def on_generate_qcm_and_display(app_context):
         )
         questions = []
         app_context.sections = []
+        traceback.print_exc()
 
     return (
         gr.update(visible=False),   # loading_section → spinner OFF

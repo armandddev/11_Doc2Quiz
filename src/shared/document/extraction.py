@@ -5,6 +5,7 @@ import mistune
 from .segmentation import segment_text
 from .detection import detection_section_displine
 from .models import Section
+from Doc2Quiz.ollama_client import OllamaWrapper
 
 
 def extractFromMd(file_input) -> dict:
@@ -21,7 +22,7 @@ def extractFromMd(file_input) -> dict:
     tree = markdown_parser(raw_text)
     titles = extractTitlesFromTree(tree)
     text = extractPlainTextFromTree(tree)
-    sections = segment_text(text, titles)
+    sections = segment_text(text, titles, llm_client=OllamaWrapper())
     sections = _detect_sections(sections)
 
     return {
@@ -106,7 +107,7 @@ def extractFromPdf(file: str) -> dict:
         raise Exception("PDF not exploitable")
 
     doc.close()
-    sections = segment_text(full_text, titles)
+    sections = segment_text(full_text, titles, llm_client=OllamaWrapper())
     sections = _detect_sections(sections)
 
     return {

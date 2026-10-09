@@ -83,6 +83,7 @@ def generate_qcm_question(
         "Règles :\n"
         "- La question teste la compréhension, pas la mémorisation mot pour mot\n"
         "- 4 options plausibles, une seule correcte\n"
+        "- Écris les formules mathématiques en texte simple (ex: 'a puissance 13 modulo n'), pas en LaTeX\n"
         '- "correct" contient uniquement la lettre : A, B, C ou D'
     )
 
@@ -177,10 +178,16 @@ def generation_qcm(
         document = process_uploaded_pdf(file_input)
     else:
         raise ValueError(f"Format de fichier non supporté : {extension}")
+    
+    sections_raw = document.get("sections", [])
+    max_q = getattr(settings, "qcm_max_questions", len(sections_raw))
+    sections_raw = sections_raw[:max_q]
+    total = len(sections_raw)
+    logger.info(f"[{total}] sections détectées (cap={max_q})")
 
     qcm: list[dict] = []
 
-    for section in document.get("sections", []):
+    for idx, section in enumerate(sections_raw, start=1):
         if isinstance(section, dict):
             source_text = section.get("text") or section.get("content") or str(section)
         else:
@@ -189,8 +196,14 @@ def generation_qcm(
         if not source_text.strip():
             continue
 
+        logger.info(f"[{idx}/{total}] Génération en cours...")
         question_data = generate_qcm_question(source_text, level, revision, llm_client)
         question_data["section"] = section
+        if not question_data.get("question"):
+            logger.warning(f"[{idx}/{total}] Section ignorée — question vide")
+            continue
         qcm.append(question_data)
+        logger.info(f"[{idx}/{total}] Question générée")
 
+    logger.info(f"QCM terminé — {len(qcm)} questions")
     return qcm

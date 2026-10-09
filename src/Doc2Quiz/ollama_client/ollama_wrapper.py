@@ -38,7 +38,7 @@ _BASE_URL    = _require("OLLAMA_BASE_URL")
 _MODEL_LLM   = _require("OLLAMA_DEFAULT_LLM")
 _MODEL_VLM   = _require("OLLAMA_DEFAULT_VLM")
 _MODEL_EMBED = _require("OLLAMA_DEFAULT_EMBED")
-_TIMEOUT     = float(os.getenv("OLLAMA_TIMEOUT_S",      "120.0"))
+_TIMEOUT     = float(os.getenv("OLLAMA_TIMEOUT_S",      "300.0"))
 _MAX_RETRIES = int(os.getenv("OLLAMA_MAX_RETRIES",       "3"))
 _BACKOFF     = float(os.getenv("OLLAMA_RETRY_BACKOFF_S", "1.0"))
 
