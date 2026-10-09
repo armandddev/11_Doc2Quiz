@@ -17,12 +17,12 @@ def render_qcm_html(questions: list[dict]) -> str:
     '''
 
     parts = [mathjax, '<div style="max-width:820px;margin:0 auto;padding:20px 10px;">']
- 
+
     for i, q in enumerate(questions):
         question_text  = (q.get("question") or "").replace("\n", "<br>")
         correct_letter = (q.get("correct") or "").strip().upper()
         options        = q.get("options", [])
- 
+
         parts.append(f"""
         <div style="background:#f8f9fa;border-left:4px solid #1B57A1;
                     border-radius:8px;padding:20px 22px;margin-bottom:22px;
@@ -36,7 +36,7 @@ def render_qcm_html(questions: list[dict]) -> str:
           </p>
           <div style="display:flex;flex-direction:column;gap:8px;">
         """)
- 
+
         for opt in options:
             if not opt:
                 continue
@@ -59,15 +59,16 @@ def render_qcm_html(questions: list[dict]) -> str:
               {opt}{badge}
             </div>
             """)
- 
+
         parts.append("</div></div>")
- 
+
     parts.append("</div>")
     return "".join(parts)
 
+
 def render_QCM():
     with gr.Column(visible=False) as generateQCM_container:
- 
+
         # En-tête
         with gr.Row():
             btn_back_QCM = gr.Button("← Retour", elem_id="btn_back")
@@ -80,7 +81,7 @@ def render_QCM():
                 </div>
             ''')
             btn_profil_QCM = gr.Button("👤 Mon profil", elem_id="btn_profil")
- 
+
         # Spinner
         with gr.Column(visible=True) as loading_section:
             gr.HTML('''
@@ -105,10 +106,10 @@ def render_QCM():
                   </p>
                 </div>
             ''')
- 
+
         # Contenu QCM
         with gr.Column(visible=False) as qcm_section:
- 
+
             gr.HTML('''
                 <div style="width:100%;text-align:center;margin:20px auto 10px auto;">
                     <h2 style="font-size:1.8rem;color:#000;margin:0;">
@@ -116,10 +117,10 @@ def render_QCM():
                     </h2>
                 </div>
             ''')
- 
+
             # Aperçu dynamique du QCM
             qcm_html_out = gr.HTML(value="", elem_id="qcm_preview")
- 
+
             # Barre de correction
             with gr.Row(elem_id="correction_bar"):
                 correction_input = gr.Textbox(
@@ -134,7 +135,7 @@ def render_QCM():
                     scale=1,
                     elem_id="btn_send_correction",
                 )
- 
+
             # Validation / passage à la suite
             with gr.Row(elem_id="widthPage"):
                 btn_generate_ok = gr.Button(
@@ -142,7 +143,7 @@ def render_QCM():
                     variant="secondary",
                     elem_id="buttonGenerateOK",
                 )
- 
+
     return (
         generateQCM_container,
         loading_section,

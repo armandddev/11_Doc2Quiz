@@ -67,7 +67,7 @@ def on_generate_qcm_and_display(app_context):
         gr.update(visible=False),   # loading_section → spinner OFF
         gr.update(visible=True),    # qcm_section → contenu visible
         gr.update(value=html),      # qcm_html_out → HTML du QCM
-        questions,                  # quiz_questions_state → alimente l'éditeur du collègue
+        questions,                  # quiz_questions_state → alimente l'éditeur
         app_context,
     )
 
@@ -97,6 +97,11 @@ def route_after_generate(app_context: AppContext):
     )
 
 def load_question_view(questions: list, current_index: int):
+    """
+    Met à jour dynamiquement l'interface selon le type de question :
+    - qcm : active les options A/B/C/D et masque la saisie libre.
+    - exercice / cours_libre : masque le QCM et affiche la grande zone de texte.
+    """
     if not questions or current_index >= len(questions):
         end_html = """
             <div class="question-header-card">
@@ -246,6 +251,25 @@ def charger_editeur_qcm(questions: list[dict]):
     )
 
 
+def display_final_result(subject: str, topic: str, level: str, score: int, total: int):
+    html_content = f'''
+        <div class="result-recap-box">
+            <h2 class="result-congrats">Félicitations, vous avez terminé le QCM</h2>
+            <div class="result-info">
+                <p>Matière : <span>{subject}</span></p>
+                <p>Sujet : <span>{topic}</span></p>
+                <p>Niveau : <span>{level}</span></p>
+                <p>Score : <span class="result-score">{score}/{total}</span></p>
+            </div>
+        </div>
+    '''
+    return (
+        gr.update(visible=False),
+        gr.update(visible=True),
+        html_content
+    )
+
+
 ## Interface
 with gr.Blocks(title="11_Doc2Quiz") as demo:
     current_session = AppContext(user=None)
@@ -335,11 +359,11 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             loading_section,            # spinner OFF
             qcm_section,                # contenu ON
             qcm_html_out,               # HTML QCM
-            quiz_questions_state,       # ← alimente l'éditeur du collègue
+            quiz_questions_state,       # alimente l'éditeur
             app_state,
         ],
     )
-    
+
     btn_back_QCM.click(
         fn=lambda: (
             gr.update(visible=True),    # homepage
@@ -363,7 +387,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[choiceTeacher_container, exportQCM_container]
     )
 
-    # 3. Redirection vers le profil
+    # Redirection vers le profil
     target_profil_view = profil_container
     profil_navigation = [
         (btn_profil_result, result_container),
@@ -375,30 +399,28 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         (btn_profil_trainingQuiz,   training_quiz_container),
     ]
 
-
     def go_to_profil(ctx):
-      t_html, u_html, h_html = update_profile_view(ctx)
-      return (
-          gr.update(visible=False),  # masque page courante
-          gr.update(visible=True),  # affiche profil
-          t_html,  # profil_title_html
-          u_html,  # user_info_html
-          h_html,  # history_info_html
-      )
-
+        t_html, u_html, h_html = update_profile_view(ctx)
+        return (
+            gr.update(visible=False),  # masque page courante
+            gr.update(visible=True),   # affiche profil
+            t_html,                    # profil_title_html
+            u_html,                    # user_info_html
+            h_html,                    # history_info_html
+        )
 
     for btn, current_page in profil_navigation:
-      btn.click(
-          fn=go_to_profil,
-          inputs=[app_state],
-          outputs=[
-              current_page,
-              target_profil_view,
-              profil_title_html,
-              user_info_html,
-              history_info_html,
-          ],
-      )
+        btn.click(
+            fn=go_to_profil,
+            inputs=[app_state],
+            outputs=[
+                current_page,
+                target_profil_view,
+                profil_title_html,
+                user_info_html,
+                history_info_html,
+            ],
+        )
 
     def on_start_training(type_rev):
         data = get_template_quiz(type_rev or "Questions de cours")
@@ -502,24 +524,22 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[profil_container, homepage_container],
     )
 
-    # 5. Gestion Connexion avec validation BDD
+    # Connexion avec validation BDD
     def on_login_submit(ctx, email, pwd):
         try:
             updated_ctx, msg = handle_login(ctx, email, pwd)
 
-            # Vérification que le compte est bien en session
             print(
                 f"[SESSION ACTIVE] ID: {updated_ctx.user.user_id} | Nom:"
                 f" {updated_ctx.user.name} | Rôle: {updated_ctx.user.role}",
                 flush=True,
             )
 
-            # Masque le formulaire de connexion et affiche la page d'accueil
             return (
                 updated_ctx,
                 gr.update(value=f"✅ {msg}", visible=True),
                 gr.update(visible=False),  # sign_in_container
-                gr.update(visible=True),  # homepage_container
+                gr.update(visible=True),   # homepage_container
             )
         except Exception as e:
             return (
@@ -528,7 +548,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                 gr.update(visible=True),
                 gr.update(visible=False),
             )
-
 
     btn_login.click(
         fn=on_login_submit,
@@ -564,29 +583,25 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
     # 1. Clic sur "Modifier" : Pré-remplit les champs avec l'utilisateur connecté
     def open_edit_mode(ctx: AppContext):
-      if not ctx or not ctx.user:
+        if not ctx or not ctx.user:
+            return (
+                gr.update(visible=True),
+                gr.update(visible=False),
+                "", "", "", "",
+            )
+
+        names = ctx.user.name.split(" ", 1)
+        first_name = names[0]
+        last_name = names[1] if len(names) > 1 else ""
+
         return (
-            gr.update(visible=True),
-            gr.update(visible=False),
-            "",
-            "",
-            "",
-            "",
+            gr.update(visible=False),  # masque la vue profil normale
+            gr.update(visible=True),   # affiche le formulaire de modification
+            first_name,
+            last_name,
+            ctx.user.email,
+            "",  # champ mot de passe vide par défaut
         )
-
-      names = ctx.user.name.split(" ", 1)
-      first_name = names[0]
-      last_name = names[1] if len(names) > 1 else ""
-
-      return (
-          gr.update(visible=False),  # masque la vue profil normale
-          gr.update(visible=True),  # affiche le formulaire de modification
-          first_name,
-          last_name,
-          ctx.user.email,
-          "",  # champ mot de passe vide par défaut
-      )
-
 
     btn_edit_profile.click(
         fn=open_edit_mode,
@@ -608,37 +623,35 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[view_profile_box, edit_profile_box],
     )
 
-
     # 3. Clic sur "Enregistrer" : Met à jour la BDD, app_state et l'affichage HTML
     def on_save_profile(ctx: AppContext, fname, lname, email, new_pwd):
-      try:
-        updated_user = update_user_profile(
-            user_id=ctx.user.user_id,
-            first_name=fname,
-            last_name=lname,
-            email=email,
-            new_password=new_pwd,
-        )
-        ctx.user = updated_user
-        t_html, u_html, h_html = update_profile_view(ctx)
-        return (
-            ctx,
-            gr.update(visible=True),  
-            gr.update(visible=False),  
-            t_html,
-            u_html,
-            gr.update(value="✅ Profil mis à jour avec succès !", visible=True),
-        )
-      except Exception as e:
-        return (
-            ctx,
-            gr.update(visible=False),
-            gr.update(visible=True),
-            gr.update(),
-            gr.update(),
-            gr.update(value=f"❌ Erreur : {e}", visible=True),
-        )
-
+        try:
+            updated_user = update_user_profile(
+                user_id=ctx.user.user_id,
+                first_name=fname,
+                last_name=lname,
+                email=email,
+                new_password=new_pwd,
+            )
+            ctx.user = updated_user
+            t_html, u_html, h_html = update_profile_view(ctx)
+            return (
+                ctx,
+                gr.update(visible=True),
+                gr.update(visible=False),
+                t_html,
+                u_html,
+                gr.update(value="✅ Profil mis à jour avec succès !", visible=True),
+            )
+        except Exception as e:
+            return (
+                ctx,
+                gr.update(visible=False),
+                gr.update(visible=True),
+                gr.update(),
+                gr.update(),
+                gr.update(value=f"❌ Erreur : {e}", visible=True),
+            )
 
     btn_save_profile.click(
         fn=on_save_profile,
@@ -659,12 +672,11 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         if not confirmed:
             return ctx, gr.skip(), gr.skip(), gr.skip()
 
-        
         if not ctx or not ctx.user:
             return (
                 ctx,
-                gr.update(visible=True),  
-                gr.update(visible=False), 
+                gr.update(visible=True),
+                gr.update(visible=False),
                 gr.update(
                     value="❌ Erreur : aucun utilisateur connecté.", visible=True
                 ),
@@ -678,8 +690,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
             return (
                 cleared_ctx,
-                gr.update(visible=False), 
-                gr.update(visible=True),  
+                gr.update(visible=False),
+                gr.update(visible=True),
                 gr.update(
                     value="✅ Votre compte a été définitivement supprimé.",
                     visible=True,
@@ -694,7 +706,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                     value=f"❌ Erreur lors de la suppression : {e}", visible=True
                 ),
             )
-
 
     btn_delete_profile.click(
         fn=on_delete_profile,

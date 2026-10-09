@@ -23,6 +23,7 @@ _REVISION_LABELS = {
 
 
 # Extraction
+
 def process_uploaded_pdf(file_input) -> dict:
     filepath = file_input.name if hasattr(file_input, "name") else str(file_input)
     return extractFromPdf(filepath)
@@ -178,7 +179,7 @@ def generation_qcm(
         document = process_uploaded_pdf(file_input)
     else:
         raise ValueError(f"Format de fichier non supporté : {extension}")
-    
+
     sections_raw = document.get("sections", [])
     max_q = getattr(settings, "qcm_max_questions", len(sections_raw))
     sections_raw = sections_raw[:max_q]

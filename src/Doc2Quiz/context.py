@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
-
 class Role(str, Enum):
     TEACHER = "teacher"
     STUDENT = "student"
