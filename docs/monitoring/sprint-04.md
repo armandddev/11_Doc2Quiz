@@ -1,10 +1,10 @@
-# Sprint 4 — Semaines 8-9 : Qualité adaptative + Anti-répétition + Préférences
+# Sprint 4 — Semaines 8-9 : Qualité adaptative + Anti-répétition + Types de questions
 
-**Objectif** : exploiter les retours stockés pour affiner la qualité génération après génération — notation, rejet global, anti-répétition entre sessions, et préférences automatiques.
+**Objectif** : exploiter les retours stockés pour affiner la qualité génération après génération, introduire les questions Vrai/Faux, et garantir la variété entre sessions.
 
 ---
 
-## US-24 : Notation individuelle des questions (3 pts)
+## US-27 : Notation individuelle des questions (3 pts)
 
 En tant qu'enseignant, je veux **noter chaque question individuellement** (👍 / 👎) afin d'alimenter le résumé de contexte et de suivre la qualité perçue par notion.
 
@@ -29,7 +29,7 @@ En tant qu'enseignant, je veux **noter chaque question individuellement** (👍 
 
 ---
 
-## US-25 : Rejet d'un QCM entier avec motif (3 pts)
+## US-28 : Rejet d'un QCM entier avec motif (3 pts)
 
 En tant qu'enseignant, je veux pouvoir **rejeter un QCM entier avec un commentaire libre** afin que le motif soit intégré dans le résumé de contexte et évité lors des prochaines générations.
 
@@ -51,7 +51,34 @@ En tant qu'enseignant, je veux pouvoir **rejeter un QCM entier avec un commentai
 
 ---
 
-## US-26 : Anti-répétition entre générations (8 pts)
+## US-29 : Questions Vrai/Faux (5 pts)
+
+En tant qu'enseignant, je veux pouvoir **générer des questions de type Vrai/Faux** en complément des QCM classiques, afin de diversifier les formes d'évaluation.
+
+**CA :**
+
+- L'enseignant peut choisir, à la génération, d'inclure des questions Vrai/Faux (en proportion libre ou fixe par rapport aux QCM).
+- Chaque question Vrai/Faux contient : un énoncé affirmatif, la bonne réponse (Vrai ou Faux), et une explication justifiant la réponse.
+- Les énoncés Vrai/Faux ne reprennent pas les phrases du cours telles quelles (même règle anti-verbatim que pour les QCM).
+- Le format de sortie est validé par un schéma Pydantic dédié.
+- Les questions Vrai/Faux sont exportées dans les formats GIFT et XML Moodle (type "truefalse").
+
+**Sous-tâches techniques :**
+
+1. Schéma Pydantic `QuestionVraiFaux(énoncé, réponse: bool, explication, niveau_difficulté)`.
+2. Prompt dédié pour la génération Vrai/Faux : insister sur des énoncés qui ne soient pas trivialement vrais ou faux (éviter les "L'eau bout à 100°C — Vrai").
+3. Ajout du sélecteur "Type de questions" dans l'interface de génération : QCM uniquement / Vrai/Faux uniquement / Mixte (avec slider de proportion).
+4. Extension de l'anti-verbatim existant aux énoncés Vrai/Faux.
+5. Sérialisation GIFT pour le type `TF` et XML Moodle pour le type `truefalse`.
+6. Affichage différencié dans l'interface de révision (icône ou badge "V/F").
+
+**Cas à tester :** énoncé Vrai/Faux trop proche du texte source (doit être rejeté par l'anti-verbatim), export GIFT d'un QCM mixte (QCM + Vrai/Faux), génération Vrai/Faux sur un contenu très court.
+
+**Definition of Done :** génération, affichage, révision (US-24) et export fonctionnels pour le type Vrai/Faux, testés sur 3 supports de matières différentes.
+
+---
+
+## US-30 : Anti-répétition entre générations (8 pts)
 
 En tant qu'enseignant, je veux que **deux générations successives sur le même support ne produisent jamais les mêmes questions**, afin de varier les évaluations.
 
@@ -60,43 +87,19 @@ En tant qu'enseignant, je veux que **deux générations successives sur le même
 - Deux générations successives sur le même support et le même profil ne produisent jamais de question identique ou quasi-identique (seuil : 30 %).
 - Un historique des questions déjà posées (par support + profil) est stocké en base et pris en compte lors de chaque nouvelle génération.
 - Un test automatisé mesure le taux de chevauchement sur 3 générations successives.
-- La règle s'applique quel que soit le contexte ou la matière.
+- La règle s'applique quel que soit le type de question (QCM ou Vrai/Faux) et la matière.
 
 **Sous-tâches techniques :**
 
-1. Stockage d'une empreinte sémantique (hash ou embedding léger) de chaque question générée, indexée par `(user_id, document_id)` en NoSQL.
+1. Stockage d'une empreinte sémantique (hash ou embedding léger) de chaque question générée, indexée par `(user_id, document_id)` en NoSQL — couvre QCM et Vrai/Faux.
 2. Injection dans le prompt d'un résumé des "angles déjà couverts" (pas la liste brute complète, pour ne pas saturer le contexte LLM).
-3. Calcul de similarité inter-générations (n-grammes identiques à l'anti-verbatim existant, ou embeddings pour robustesse sémantique accrue).
+3. Calcul de similarité inter-générations (n-grammes ou embeddings).
 4. Test automatisé : 3 générations successives sur le même support → mesure du taux de chevauchement par paire.
 
-**Cas à tester :** support avec très peu de notions (risque de répétition difficile à éviter — doit déclencher une alerte plutôt qu'échouer silencieusement), volume important de générations successives (impact performance sur l'injection).
+**Cas à tester :** support avec très peu de notions (doit déclencher une alerte plutôt qu'échouer silencieusement), mélange QCM + Vrai/Faux sur un même support (les deux types doivent être couverts par l'anti-répétition).
 
-**Definition of Done :** taux de chevauchement mesuré et documenté sous 30 % sur au moins 5 supports testés, test automatisé passant en CI.
-
----
-
-## US-27 : Préférences automatiques par profil (3 pts)
-
-En tant que système, je veux **mémoriser les habitudes de génération de chaque enseignant** afin de pré-remplir les paramètres au prochain lancement.
-
-**CA :**
-
-- Les paramètres effectivement utilisés à chaque génération (nombre de questions, répartition de difficulté, contexte sélectionné) sont enregistrés.
-- Ces tendances pré-remplissent les champs à la prochaine ouverture de l'écran de génération.
-- L'enseignant peut consulter et réinitialiser ses préférences depuis son profil.
-- Nouvel utilisateur sans historique : valeurs par défaut génériques.
-
-**Sous-tâches techniques :**
-
-1. Document NoSQL `UserPreferences(user_id, clé, valeur, date_maj)` — upsert à chaque génération.
-2. Mise à jour incrémentale (dernière valeur ou moyenne mobile sur les 5 dernières sessions).
-3. Pré-remplissage des champs Gradio au chargement de l'écran.
-4. Endpoints `GET /preferences` et `DELETE /preferences` (réinitialisation complète).
-
-**Cas à tester :** changement brutal d'habitude (le système s'adapte dès la session suivante), réinitialisation → retour aux valeurs génériques.
-
-**Definition of Done :** préférence modifiée puis reflétée au prochain formulaire, réinitialisation testée.
+**Definition of Done :** taux de chevauchement mesuré et documenté sous 30 % sur au moins 5 supports, test automatisé passant en CI.
 
 ---
 
-**Démo de sprint** : un enseignant note des questions 👎 et rejette un QCM — la génération suivante intègre ces retours via le résumé de contexte en en-tête — deux générations successives sur le même support produisent des questions différentes — ses habitudes de paramétrage sont pré-remplies automatiquement.
+**Démo de sprint** : un enseignant génère un QCM mixte (QCM + Vrai/Faux), note des questions 👎, rejette le QCM avec un motif — la génération suivante sur le même support intègre ces retours en en-tête et ne reproduit aucune question déjà posée.
