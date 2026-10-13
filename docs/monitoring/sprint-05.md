@@ -1,10 +1,10 @@
-# Sprint 5 — Semaine 10 : Stabilisation & recette
+# Sprint 5 : Stabilisation & recette
 
-**Objectif** : valider l'ensemble du produit de bout en bout et sécuriser la qualité logicielle avant la soutenance.
+**Objectif** : valider l'ensemble du produit de bout en bout, sécuriser la qualité logicielle, et ramener le temps de génération à moins de 4 minutes avant la soutenance.
 
 ---
 
-## US-28 : Tests unitaires (5 pts)
+## US-30 : Tests unitaires (5 pts)
 
 En tant qu'équipe, je veux des **tests unitaires sur les modules critiques** afin de sécuriser les évolutions.
 
@@ -16,7 +16,7 @@ En tant qu'équipe, je veux des **tests unitaires sur les modules critiques** af
 **Sous-tâches techniques :**
 
 1. Framework `pytest` + couverture `pytest-cov`.
-2. Modules prioritaires : parsing (US-05/06/07), validation JSON (US-12), anti-verbatim pipeline, anti-répétition (US-26), stockage feedback (US-20), résumé et injection contexte (US-21), export GIFT/XML (US-23).
+2. Modules prioritaires : parsing (US-05/06/07), validation JSON (US-12), anti-verbatim pipeline, anti-répétition (US-30), stockage feedback (US-20), résumé et injection contexte (US-21), export GIFT/XML (US-23), Vrai/Faux (US-29).
 3. Mock systématique des appels Ollama (jamais de dépendance à un serveur réel en CI).
 4. Mock MongoDB (ex. `mongomock`) pour les tests de persistance.
 
@@ -26,7 +26,7 @@ En tant qu'équipe, je veux des **tests unitaires sur les modules critiques** af
 
 ---
 
-## US-29 : CI (2 pts)
+## US-31 : CI (2 pts)
 
 En tant qu'équipe, je veux une **CI qui exécute lint + tests à chaque push** afin de détecter les régressions tôt.
 
@@ -45,7 +45,58 @@ En tant qu'équipe, je veux une **CI qui exécute lint + tests à chaque push** 
 
 ---
 
-## US-30 : Optimisation par parallélisation des appels LLM (5 pts)
+## US-32 : Fusion des appels LLM par section (5 pts)
+
+En tant qu'équipe, je veux **regrouper les appels LLM séquentiels par section en un seul appel** afin de diviser le nombre total d'appels par ~3 et réduire drastiquement le temps de génération.
+
+**CA :**
+
+- Pour chaque section, les trois appels actuellement séquentiels (détection content-type + matière, résumé, génération des questions) sont remplacés par un seul prompt qui retourne les trois en une réponse JSON.
+- Le schéma de sortie est validé par Pydantic comme avant — seule la structure d'appel change, pas la validation.
+- Aucune régression sur la qualité des questions générées (vérifiée sur les mêmes supports de test qu'avant).
+- Benchmark avant/après documenté sur un support de 10 sections : objectif ÷3 sur le nombre d'appels.
+
+**Sous-tâches techniques :**
+
+1. Concevoir le prompt fusionné : `[texte de section]` → JSON avec clés `content_type`, `matière`, `résumé`, `questions[]`. Utiliser un exemple few-shot pour forcer la structure.
+2. Adapter le schéma Pydantic pour valider la réponse fusionnée en une passe.
+3. Supprimer les trois anciens appels séquentiels et les remplacer par l'appel unique dans le pipeline.
+4. Vérifier que le self-repair (2 tentatives sur JSON invalide) fonctionne toujours sur le nouveau schéma fusionné.
+5. Benchmark : comparer nombre d'appels et temps total avant/après sur 3 supports de tailles différentes.
+
+**Cas à tester :** section très courte (le LLM doit quand même produire les 3 sorties), section avec formules mathématiques (content-type "calcul" correctement détecté dans la réponse fusionnée), JSON partiellement invalide (self-repair sur la réponse fusionnée).
+
+**Definition of Done :** nombre d'appels LLM par section réduit à 1, benchmark documenté, aucune régression sur les tests unitaires existants.
+
+---
+
+## US-33 : Anti-verbatim algorithmique (3 pts)
+
+En tant qu'équipe, je veux **remplacer l'appel LLM de validation anti-verbatim par un calcul algorithmique de similarité** afin de supprimer 10+ appels lents pour une tâche qui n'en a pas besoin.
+
+**CA :**
+
+- La détection de verbatim n'effectue plus aucun appel LLM : elle repose uniquement sur un calcul de similarité par n-grammes (shingles de 4 mots).
+- Le seuil de similarité reste configurable dans `config.yaml` (valeur par défaut 40 %, inchangée).
+- Le temps de traitement de l'anti-verbatim passe de ~30s/question (appel LLM) à <5ms/question (calcul local).
+- En cas de dépassement du seuil, la question est renvoyée au LLM pour reformulation avec un prompt explicite — c'est le seul appel LLM restant dans ce module.
+- Les tests existants sur l'anti-verbatim continuent de passer sans modification.
+
+**Sous-tâches techniques :**
+
+1. Implémenter la fonction `similarity_score(text_a, text_b, n=4) -> float` basée sur les shingles de n-grammes (`nltk` ou fonction maison — pas de dépendance lourde).
+2. Remplacer l'appel LLM de validation par cette fonction dans le pipeline.
+3. Conserver uniquement l'appel LLM de *reformulation* en cas de dépassement (le LLM ne juge plus, il reformule seulement).
+4. Benchmark : mesurer le temps de traitement anti-verbatim avant/après sur un QCM de 10 questions.
+5. Vérifier que le taux de faux positifs reste comparable à l'ancienne version LLM (mesure sur le corpus de test existant).
+
+**Cas à tester :** question identique au texte source (doit être rejetée), question reformulée légèrement (doit passer), contenu avec formules LaTeX ou code (les n-grammes doivent les traiter sans crash).
+
+**Definition of Done :** zéro appel LLM dans la phase de détection, temps <5ms par question mesuré, tests anti-verbatim existants tous verts.
+
+---
+
+## US-34 : Optimisation par parallélisation des appels LLM (5 pts)
 
 En tant qu'équipe, je veux **identifier et paralléliser les appels LLM séquentiels** afin de réduire significativement le temps de génération d'un QCM complet.
 
@@ -72,13 +123,13 @@ En tant qu'équipe, je veux **identifier et paralléliser les appels LLM séquen
 
 ---
 
-## US-31 : Validation globale (5 pts)
+## US-35 : Validation globale (5 pts)
 
 En tant qu'équipe, je veux une **recette globale couvrant l'ensemble des fonctionnalités** afin de valider le produit avant la soutenance.
 
 **CA :**
 
-- Le scénario de recette couvre explicitement : génération de base, utilisation du contexte pédagogique, injection du résumé de retours en en-tête, anti-répétition entre deux générations, export GIFT et XML, historique profil, et gain de performance mesuré (US-30).
+- Le scénario de recette couvre explicitement : génération de base (QCM + Vrai/Faux), injection du résumé de retours en en-tête, revue question par question avec régénération (US-23), anti-répétition entre deux générations (US-29), export GIFT et XML (US-22), historique profil (US-21), gain de performance mesuré (US-32 + US-33 + US-34).
 - Au moins un support de test différent de ceux utilisés en développement est utilisé par scénario.
 - La recette est exécutée par une personne n'ayant pas développé la fonctionnalité testée.
 - Un rapport de recette formalisé est produit avant la soutenance.
@@ -90,10 +141,10 @@ En tant qu'équipe, je veux une **recette globale couvrant l'ensemble des foncti
 3. Exécution croisée (une personne par fonctionnalité qu'elle n'a pas codée).
 4. Rapport : succès/échec par critère, captures d'écran si pertinent.
 
-**Cas à tester :** scénario complet avec correction d'une question → vérification que le résumé LLM est mis à jour → nouvelle génération sur le même support → vérification anti-répétition + présence du résumé en en-tête du prompt.
+**Cas à tester :** scénario complet — correction + rejet → résumé LLM mis à jour → nouvelle génération sur le même support (anti-répétition vérifiée, résumé en en-tête) → revue question par question avec une régénération → export XML validé.
 
 **Definition of Done :** rapport de recette rédigé et partagé avec l'équipe avant la soutenance.
 
 ---
 
-**Démo de sprint** : recette formalisée présentée, couvrant l'ensemble des fonctionnalités de bout en bout.
+**Démo de sprint** : recette formalisée présentée, couvrant l'ensemble des fonctionnalités de bout en bout — avec benchmark de génération montrant le passage de ~27 min à <4 min sur un support de 10 sections.

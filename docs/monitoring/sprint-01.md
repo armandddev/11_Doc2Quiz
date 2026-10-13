@@ -1,4 +1,4 @@
-# Sprint 1 — Semaines 2-3 : Fondations techniques + amorce Niveau 1
+# Sprint 1 : Fondations techniques + amorce Niveau 1
 
 **Objectif** : la donnée circule de bout en bout (upload → texte segmenté → discipline détectée), et l'infra tourne.
 

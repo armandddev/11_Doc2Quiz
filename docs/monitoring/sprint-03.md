@@ -1,4 +1,4 @@
-# Sprint 3 — Semaines 6-7 : Migration NoSQL + Contexte pédagogique + Stockage des retours + Export
+# Sprint 3 : Migration NoSQL + Contexte pédagogique + Stockage des retours + Export
 
 **Objectif** : migrer vers NoSQL, permettre à l'enseignant de définir un contexte pédagogique réutilisable, poser la fondation du système d'apprentissage par les erreurs (stockage + résumé LLM), et rendre l'export disponible dès maintenant.
 
@@ -32,7 +32,7 @@ En tant qu'équipe, je veux **migrer la couche de persistance vers une base NoSQ
 
 ---
 
-## US-19 : Contexte personnalisé basé sur les retours (5 pts)
+## US-18 : Contexte personnalisé basé sur les retours (5 pts)
 
 En tant qu'enseignant, je veux **consulter et réinitialiser mon contexte** — le résumé de tous mes retours passés — afin de comprendre ce que le système a appris de moi et de corriger d'éventuelles mauvaises interprétations.
 
@@ -58,7 +58,7 @@ En tant qu'enseignant, je veux **consulter et réinitialiser mon contexte** — 
 
 ---
 
-## US-20 : Stockage des retours utilisateur (5 pts)
+## US-19 : Stockage des retours utilisateur (5 pts)
 
 En tant que système, je veux **stocker chaque retour de l'enseignant en base** (correction, rejet, notation) afin de constituer la source de vérité pour le résumé de contexte (US-21).
 
@@ -91,7 +91,7 @@ En tant que système, je veux **stocker chaque retour de l'enseignant en base** 
 
 ---
 
-## US-21 : Résumé LLM des erreurs et injection en en-tête de prompt (8 pts)
+## US-20 : Résumé LLM des erreurs et injection en en-tête de prompt (8 pts)
 
 En tant que système, je veux **envoyer au LLM l'ensemble des retours d'un enseignant pour qu'il en génère un résumé**, afin que ce résumé soit injecté en en-tête de chaque nouveau prompt de génération.
 
@@ -119,7 +119,7 @@ En tant que système, je veux **envoyer au LLM l'ensemble des retours d'un ensei
 
 ---
 
-## US-22 : Historique des générations sur le profil (3 pts)
+## US-21 : Historique des générations sur le profil (3 pts)
 
 En tant qu'enseignant, je veux **consulter l'historique de mes générations sur mon profil** afin de retrouver, consulter et ré-exporter mes QCM passés.
 
@@ -143,7 +143,7 @@ En tant qu'enseignant, je veux **consulter l'historique de mes générations sur
 
 ---
 
-## US-23 : Export et téléchargement du QCM (5 pts)
+## US-22 : Export et téléchargement du QCM (5 pts)
 
 En tant qu'enseignant, je veux **exporter mon QCM en GIFT et en XML Moodle et le télécharger directement depuis l'interface**, sans manipuler de fichiers serveur.
 
@@ -168,7 +168,7 @@ En tant qu'enseignant, je veux **exporter mon QCM en GIFT et en XML Moodle et le
 
 ---
 
-## US-24 : Interface de validation du QCM question par question (5 pts)
+## US-23 : Interface de validation du QCM question par question (5 pts)
 
 En tant qu'enseignant, je veux **valider ou supprimer chaque question individuellement** depuis l'affichage du QCM généré, avec la possibilité de régénérer une question supprimée, afin d'affiner le QCM sans repartir de zéro.
 
@@ -197,7 +197,7 @@ En tant qu'enseignant, je veux **valider ou supprimer chaque question individuel
 
 ---
 
-## US-25 : Demande de questions supplémentaires (3 pts)
+## US-24 : Demande de questions supplémentaires (3 pts)
 
 En tant qu'enseignant, je veux pouvoir **demander plus de questions sur un QCM déjà généré**, afin d'approfondir l'évaluation sans relancer une génération complète.
 
@@ -221,7 +221,7 @@ En tant qu'enseignant, je veux pouvoir **demander plus de questions sur un QCM d
 
 ---
 
-## US-26 : Sauvegarde et import de QCM dans le profil (3 pts)
+## US-25 : Sauvegarde et import de QCM dans le profil (3 pts)
 
 En tant qu'enseignant ou étudiant, je veux **retrouver mes QCM sauvegardés dans mon profil** et pouvoir **en importer un depuis un fichier externe**, afin de centraliser tous mes QCM dans l'application.
 

@@ -1,6 +1,4 @@
-# Sprint 0 — Semaine 1 : Cadrage
-
-_(inchangé — non retouché comme demandé)_
+# Sprint 0 : Cadrage
 
 - **US-01** (3 pts) — Cahier des charges validé.
 - **US-02** (2 pts) — Maquettes basse-fidélité.

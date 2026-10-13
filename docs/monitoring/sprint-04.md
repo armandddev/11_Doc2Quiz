@@ -1,57 +1,60 @@
-# Sprint 4 — Semaines 8-9 : Qualité adaptative + Anti-répétition + Types de questions
+# Sprint 4 : Qualité adaptative + Anti-répétition + Types de questions
 
 **Objectif** : exploiter les retours stockés pour affiner la qualité génération après génération, introduire les questions Vrai/Faux, et garantir la variété entre sessions.
 
 ---
 
-## US-27 : Notation individuelle des questions (3 pts)
+## US-26 : Agrégation et alertes sur les notations (3 pts)
 
-En tant qu'enseignant, je veux **noter chaque question individuellement** (👍 / 👎) afin d'alimenter le résumé de contexte et de suivre la qualité perçue par notion.
+En tant qu'enseignant, je veux **voir la qualité agrégée de mes questions par notion** et être alerté quand une notion pose systématiquement problème, afin d'identifier les zones faibles de mes supports.
 
-**CA :**
-
-- Chaque question peut être notée indépendamment depuis l'interface de génération ou depuis l'historique.
-- Une notation remplace la précédente (upsert — pas de doublon).
-- Les notations sont agrégées par notion et visibles dans l'historique (US-22).
-- Une notion cumulant des 👎 répétés (au-delà d'un seuil, sur au moins N notations) déclenche une alerte visible.
-- Chaque notation est stockée en base via US-20 (`type: "notation"`) et entre dans le calcul du résumé LLM (US-21).
-
-**Sous-tâches techniques :**
-
-1. Boutons 👍/👎 par question en interface, appel `PATCH /questions/{id}/rating`.
-2. Logique d'upsert MongoDB sur le document `Feedback` correspondant.
-3. Agrégation par notion/support exposée dans l'historique.
-4. Règle d'alerte : taux de 👎 ≥ seuil sur au moins N notations → badge d'alerte dans l'interface.
-
-**Cas à tester :** notation multiple sur la même question (upsert vérifié en test auto), agrégation sur une notion sans aucune notation (affichage neutre).
-
-**Definition of Done :** upsert vérifié en test automatisé, agrégation visible et correcte dans l'écran d'historique.
-
----
-
-## US-28 : Rejet d'un QCM entier avec motif (3 pts)
-
-En tant qu'enseignant, je veux pouvoir **rejeter un QCM entier avec un commentaire libre** afin que le motif soit intégré dans le résumé de contexte et évité lors des prochaines générations.
+> Les boutons 👍/👎 et leur stockage sont posés en US-20 (Sprint 3). Cette US couvre uniquement la couche analytique : agréger ces données et en faire quelque chose d'utile.
 
 **CA :**
 
-- Bouton "Rejeter tout" avec textarea de motif libre disponible sur tout QCM généré.
-- Le retour est stocké en base (`type: "rejet"`) via US-20 et déclenche une mise à jour du résumé LLM (US-21).
-- Le statut de la génération passe à "rejeté" et est reflété dans l'historique (US-22).
+- Les notations sont agrégées par notion et par support, visibles dans l'historique (US-22) : taux d'approbation, nombre de notations, évolution dans le temps.
+- Une notion cumulant des 👎 au-delà d'un seuil (sur au moins N notations) déclenche un badge d'alerte visible dans l'historique et lors de la prochaine génération sur ce support.
+- L'agrégation couvre les deux types de questions (QCM et Vrai/Faux).
 
 **Sous-tâches techniques :**
 
-1. Bouton "Rejeter tout" + textarea → appel `POST /generations/{id}/reject`.
-2. Insertion dans `feedbacks` (`type: "rejet"`, contenu = motif libre) + mise à jour asynchrone du résumé via US-21.
-3. Mise à jour du champ `statut` de la génération en base.
+1. Pipeline d'agrégation MongoDB : `group by (user_id, notion)` sur la collection `feedbacks`, calcul du taux de 👎.
+2. Endpoint `GET /analytics/notions` exposant le tableau agrégé (notion, taux_approbation, nb_notations).
+3. Règle d'alerte : taux 👎 ≥ seuil sur ≥ N notations → champ `alerte: true` sur le document notion en base.
+4. Affichage du badge d'alerte dans l'historique et dans l'écran de génération si une notion alertée est détectée dans le support.
 
-**Cas à tester :** commentaire vague ("c'est nul") — le résumé LLM doit quand même produire quelque chose d'actionnable, commentaire très précis.
+**Cas à tester :** notion sans aucune notation (affichage neutre, pas de division par zéro), alerte déclenchée puis réinitialisée après correction (badge doit disparaître).
 
-**Definition of Done :** rejet stocké, statut mis à jour dans l'historique, résumé LLM vérifié manuellement sur la génération suivante.
+**Definition of Done :** agrégation correcte vérifiée en test automatisé, badge d'alerte visible manuellement dans les deux points d'accès.
 
 ---
 
-## US-29 : Questions Vrai/Faux (5 pts)
+## US-27 : Suivi et affichage des rejets dans l'historique (2 pts)
+
+En tant qu'enseignant, je veux **voir clairement le statut et le motif de rejet de mes QCM** dans l'historique, afin de suivre l'évolution de la qualité de mes générations.
+
+> Le stockage du rejet et la mise à jour du résumé LLM sont couverts par US-20 et US-21 (Sprint 3). Cette US couvre uniquement la visibilité dans l'interface.
+
+**CA :**
+
+- Dans l'historique (US-22), les QCM rejetés affichent un badge "Rejeté" avec le motif résumé (extrait du `ContextSummary`) en tooltip ou en ligne.
+- Un filtre `statut=rejeté` est disponible dans l'historique.
+- Un QCM rejeté peut être rouvert, consulté et régénéré depuis l'historique.
+
+**Sous-tâches techniques :**
+
+1. Champ `statut` et `motif_résumé` dans le document `generation` déjà mis à jour par US-20 — ici on les exploite en lecture.
+2. Badge "Rejeté" dans le tableau de l'historique avec tooltip affichant le motif résumé.
+3. Filtre `?statut=rejeté` dans l'endpoint `GET /generations` (extension du filtre existant US-22).
+4. Bouton "Régénérer" depuis la vue détaillée d'un QCM rejeté → relance le pipeline sur le même document source.
+
+**Cas à tester :** QCM rejeté sans motif saisi (badge "Rejeté" sans tooltip), régénération depuis un rejet sur un document source entre-temps supprimé (message d'erreur explicite).
+
+**Definition of Done :** badge, filtre et régénération fonctionnels, testés manuellement sur 2 QCM rejetés.
+
+---
+
+## US-28 : Questions Vrai/Faux (5 pts)
 
 En tant qu'enseignant, je veux pouvoir **générer des questions de type Vrai/Faux** en complément des QCM classiques, afin de diversifier les formes d'évaluation.
 
@@ -78,7 +81,7 @@ En tant qu'enseignant, je veux pouvoir **générer des questions de type Vrai/Fa
 
 ---
 
-## US-30 : Anti-répétition entre générations (8 pts)
+## US-29 : Anti-répétition entre générations (8 pts)
 
 En tant qu'enseignant, je veux que **deux générations successives sur le même support ne produisent jamais les mêmes questions**, afin de varier les évaluations.
 
