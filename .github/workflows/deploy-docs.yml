@@ -1,0 +1,107 @@
+name: Deploy Doc
+
+on:
+  push:
+    branches: [ '**' ]
+
+jobs:
+  deploy-doc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installer Pandoc & LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-extra texlive-xetex
+
+      - name: Installer Python & MkDocs
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Dépendances MkDocs
+        run: |
+          pip install mkdocs mkdocs-material
+
+      - name: Générer le PDF complet
+        run: |
+          awk '{ if ($0 == "<!-- TOC_PDF -->") { print "\\renewcommand{\\contentsname}{Table des matières}"; print "\\setcounter{tocdepth}{2}"; print "\\tableofcontents"; print "\\newpage" } else print }' \
+            docs/user-guide/introduction.md > /tmp/introduction.md
+          pandoc \
+            /tmp/introduction.md \
+            docs/user-guide/fonctionnalites/00-inscription.md \
+            docs/user-guide/fonctionnalites/01-connexion_compte.md \
+            docs/user-guide/fonctionnalites/02-creation-qcm.md \
+            docs/user-guide/fonctionnalites/03-entrainement.md \
+            docs/user-guide/fonctionnalites/04-profil.md \
+            docs/user-guide/faq.md \
+            -o docs/user-guide/documentation-utilisateur.pdf \
+            --pdf-engine=xelatex \
+            --resource-path=.:docs/user-guide:docs/user-guide/fonctionnalites \
+            --toc-depth=2 \
+            -V geometry:margin=2.5cm \
+            -V lang=fr-FR \
+            -V toc-title:"Table des matières"
+
+      - name: Préparer la configuration MkDocs
+        run: |
+          cat > mkdocs.yml << 'EOF'
+          site_name: Documentation Doc2Quiz
+          site_description: Documentation utilisateur complète
+          site_url: https://armandddev.github.io/11_Doc2Quiz/
+
+          theme:
+            name: material
+            palette:
+              primary: indigo
+              accent: indigo
+            features:
+              - navigation.tabs
+              - navigation.sections
+
+          markdown_extensions:
+            - attr_list
+            - md_in_html
+            - admonition
+            - pymdownx.superfences
+
+          docs_dir: docs/user-guide
+
+          nav:
+            - Accueil: index.md
+            - Introduction: introduction.md
+            - Fonctionnalités:
+              - Inscription: fonctionnalites/00-inscription.md
+              - Connexion au compte: fonctionnalites/01-connexion_compte.md
+              - Création de QCM: fonctionnalites/02-creation-qcm.md
+              - Entraînement: fonctionnalites/03-entrainement.md
+              - Gestion du profil: fonctionnalites/04-profil.md
+            - FAQ: faq.md
+          EOF
+
+          cat > docs/user-guide/index.md << 'EOF'
+
+          Retrouvez l'ensemble des guides et explications pour l'utilisation de **Doc2Quiz**.
+
+          [Télécharger la version PDF complète](documentation-utilisateur.pdf)
+
+          Utilisez le menu latéral pour naviguer à travers les différentes sections.
+          EOF
+
+          sed -i 's/<!-- TOC_PDF -->//g' docs/user-guide/introduction.md
+
+      - name: Builder la documentation avec MkDocs
+        run: |
+          mkdocs build --site-dir _site
+
+      - name: Déployer sur GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          force_orphan: true

@@ -1,0 +1,4 @@
+anti_verbatim:
+  threshold: 0.40
+  max_retries: 2
+  

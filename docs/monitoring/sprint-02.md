@@ -1,4 +1,4 @@
-# Sprint 2 — Semaines 4-5 : Niveau 1 complet (difficulté, calculs) + persistance de base
+# Sprint 2 : Niveau 1 complet (difficulté, calculs) + persistance de base
 
 **Objectif** : le Niveau 1 fonctionne de bout en bout — un enseignant obtient un QCM avec calculs et niveaux de difficulté, et le système persiste les données.
 
