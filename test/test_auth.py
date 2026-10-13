@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 import bcrypt
+import psycopg
 
 from Doc2Quiz.context import Role, UserContext
 from Doc2Quiz.auth import sign_in, sign_up
@@ -96,7 +97,7 @@ def test_sign_up_password_trop_court():
 def test_sign_up_email_deja_utilise():
     with patch("Doc2Quiz.auth.get_cursor") as mock_cursor:
         cur = MagicMock()
-        cur.execute.side_effect = Exception("duplicate key")
+        cur.execute.side_effect = psycopg.errors.UniqueViolation("duplicate key")
         mock_cursor.return_value.__enter__ = lambda s: cur
         mock_cursor.return_value.__exit__ = MagicMock(return_value=False)
 

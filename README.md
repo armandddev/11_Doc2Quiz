@@ -58,7 +58,7 @@ Voir `.env.sample` pour la liste complète des variables à configurer.
 | Variable | Description | Exemple |
 |---|---|---|
 | `OLLAMA_BASE_URL` | URL de l'instance Ollama | `http://10.22.28.190:11434` |
-| `LLM_MODEL` | Modèle LLM à utiliser | `gemma4:12b` |
+| `LLM_MODEL` | Modèle LLM à utiliser | `gemma4:26b` |
 | `DB_HOST` | Hôte PostgreSQL | `pg` |
 | `DB_PORT` | Port PostgreSQL | `5432` |
 | `DB_NAME` | Nom de la base | `app_db` |

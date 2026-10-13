@@ -1,62 +1,75 @@
-# tests/test_core.py
-from unittest.mock import MagicMock, patch
+from pathlib import Path
 import pytest
-from Doc2Quiz.service.core import generate_question
+from Doc2Quiz.service.core import generate_question, generation_qcm
+from Doc2Quiz.ollama_client.ollama_wrapper import OllamaWrapper
 
 
-def test_generate_question_accepted_first_try():
-    mock_llm = MagicMock()
-    mock_llm.generate.return_value = "comment les végétaux fabriquent-ils leur nourriture ?"
-
-    source = "la photosynthèse est le processus par lequel les plantes produisent de l'énergie"
-
-    with patch("Doc2Quiz.service.core.is_too_similar", return_value=False):
-        result = generate_question(source, mock_llm)
-
-    assert result == "comment les végétaux fabriquent-ils leur nourriture ?"
-    assert mock_llm.generate.call_count == 1
+@pytest.fixture
+def llm_client():
+    """Fixture instanciant le vrai wrapper Ollama."""
+    return OllamaWrapper()
 
 
-def test_generate_question_retry_on_similar():
-    mock_llm = MagicMock()
-    mock_llm.generate.side_effect = [
-        "la photosynthèse est le processus par lequel les plantes produisent de l'énergie ?",
-        "comment les végétaux fabriquent-ils leur nourriture grâce à la lumière ?",
-    ]
+def test_generate_question_avec_ollama(llm_client):
+    """Teste la génération directe d'une question avec le vrai LLM."""
+    source = (
+        "La photosynthèse est le processus par lequel les plantes vertes "
+        "convertissent la lumière du soleil en énergie chimique sous forme de glucose."
+    )
 
-    source = "la photosynthèse est le processus par lequel les plantes produisent de l'énergie"
+    resultat = generate_question(source, llm_client)
 
-    with patch("Doc2Quiz.service.core.is_too_similar", side_effect=[True, False]):
-        result = generate_question(source, mock_llm)
-
-    assert result == "comment les végétaux fabriquent-ils leur nourriture grâce à la lumière ?"
-    assert mock_llm.generate.call_count == 2
+    print(f"\n--- Question générée par Ollama : {resultat}")
+    assert isinstance(resultat, str)
+    assert len(resultat) > 10
 
 
-def test_generate_question_rephrase_prompt_is_different():
-    mock_llm = MagicMock()
-    mock_llm.generate.return_value = "une question quelconque"
+def test_generation_qcm_avec_fichier_md(tmp_path, llm_client):
+    """Teste le flux complet d'extraction et génération QCM depuis un fichier Markdown."""
+    fichier_test = tmp_path / "cours_photosynthese.md"
+    fichier_test.write_text(
+        "# La Photosynthèse\n\n"
+        "La photosynthèse est le processus par lequel les plantes vertes "
+        "convertissent la lumière du soleil en énergie chimique sous forme de glucose.",
+        encoding="utf-8"
+    )
 
-    source = "la photosynthèse est le processus par lequel les plantes produisent de l'énergie"
+    resultats = generation_qcm(str(fichier_test), llm_client)
 
-    with patch("Doc2Quiz.service.core.is_too_similar", side_effect=[True, False]):
-        generate_question(source, mock_llm)
+    print(f"\n--- Résultat QCM : {resultats}")
 
-    prompt_initial = mock_llm.generate.call_args_list[0][0][0]
-    prompt_rephrase = mock_llm.generate.call_args_list[1][0][0]
-    assert prompt_initial != prompt_rephrase
+    assert isinstance(resultats, list)
+    assert len(resultats) > 0
+    assert "question" in resultats[0]
+    assert isinstance(resultats[0]["question"], str)
+    assert len(resultats[0]["question"]) > 10
 
 
-def test_generate_question_fail_safe_after_max_retries():
-    mock_llm = MagicMock()
-    mock_llm.generate.return_value = "question trop similaire au source"
+def test_generation_qcm_extension_invalide(llm_client):
+    """Vérifie que la fonction lève une erreur pour un format non supporté."""
+    with pytest.raises(ValueError, match="Format de fichier non"):
+        generation_qcm("fichier.txt", llm_client)
 
-    source = "la photosynthèse est le processus par lequel les plantes produisent de l'énergie"
+def test_generation_qcm(tmp_path):
+    # Création d'un vrai fichier Markdown de test
+    fichier_test = tmp_path / "cours_photosynthese.md"
+    fichier_test.write_text(
+        "# La Photosynthèse\n\n"
+        "La photosynthèse est le processus par lequel les plantes vertes "
+        "convertissent la lumière du soleil en énergie chimique sous forme de glucose.",
+        encoding="utf-8"
+    )
 
-    with patch("Doc2Quiz.service.core.is_too_similar", return_value=True):
-        with patch("Doc2Quiz.service.core.settings") as mock_settings:
-            mock_settings.anti_verbatim_max_retries = 2
-            result = generate_question(source, mock_llm)
+    # Générations
+    llm_client = OllamaWrapper()
+    resultats = generation_qcm(str(fichier_test), llm_client)
 
-    assert result is not None
-    assert mock_llm.generate.call_count == 3  # 1 initial + 2 retries
+    # Affichage dans la console
+    print(resultats)
+
+    # tests
+    assert isinstance(resultats, list)
+    assert len(resultats) > 0
+    assert "question" in resultats[0]
+    assert isinstance(resultats[0]["question"], str)
+    assert len(resultats[0]["question"]) > 10

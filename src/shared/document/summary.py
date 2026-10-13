@@ -15,14 +15,13 @@ def summarize_text(text: str, summary_generator=None) -> str:
         from Doc2Quiz.ollama_client.ollama_wrapper import OllamaWrapper
 
         wrapper = OllamaWrapper()
-        if wrapper.is_server_running():
-            prompt = (
-                "Résume ce texte en 1 ou 2 phrases très courtes, sans liste ni points.\n\n"
-                f"Texte :\n{cleaned_text[:3000]}"
-            )
-            result = wrapper.generate_text(prompt).response
-            if result and result.strip():
-                return result.strip()
+        prompt = (
+            "Résume ce texte en 1 ou 2 phrases très courtes, sans liste ni points.\n\n"
+            f"Texte :\n{cleaned_text[:3000]}"
+        )
+        result = wrapper.generate_text(prompt).response
+        if result and result.strip():
+            return result.strip()
     except Exception:
         pass
 
