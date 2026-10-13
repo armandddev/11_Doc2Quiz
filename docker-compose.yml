@@ -42,6 +42,23 @@ services:
     depends_on:
       pg:
         condition: service_healthy
+      # Cas ou on utilise Ollama en local
+  #     ollama:
+  #       condition: service_healthy
+
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: ollama_Doc2Quiz
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   healthcheck:
+  #     test: ["CMD", "ollama", "list"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 12
 
   adminer:
       image: adminer:latest

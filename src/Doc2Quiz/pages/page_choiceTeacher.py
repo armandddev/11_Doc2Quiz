@@ -2,7 +2,7 @@ import base64
 from pathlib import Path
 import gradio as gr
 
-from shared.qcm import enregistrer_modification
+from shared.qcm import enregistrer_modifications
 
 
 def render_choiceTeacher():
@@ -48,18 +48,28 @@ def render_choiceTeacher():
             choices=[],
             label="Question à corriger",
             interactive=True,
+            visible=False,
         )
-        question_input = gr.Textbox(label="Énoncé", lines=3, interactive=True)
+        question_input = gr.Textbox(label="Énoncé", lines=3, interactive=True, visible=False)
         options_input = gr.Textbox(
             label="Options (une par ligne)",
             lines=4,
             interactive=True,
+            visible=False,
         )
-        answer_input = gr.Textbox(label="Bonne réponse proposée par l'IA", interactive=False)
+        answer_input = gr.Textbox(
+            label="Bonne réponse proposée par l'IA",
+            interactive=False,
+            visible=False,
+        )
         error_input = gr.Textbox(
-            label="Décrivez l'erreur",
-            placeholder="Exemple : la bonne réponse devrait être...",
-            lines=3,
+            label="Corrections à appliquer (une ligne par question)",
+            placeholder=(
+                "Question 1 : la bonne réponse devrait être B.\n"
+                "Question 2 : reformuler l'énoncé.\n"
+                "Laissez une ligne vide pour ne pas modifier une question."
+            ),
+            lines=10,
         )
         with gr.Row():
             save_question_button = gr.Button(

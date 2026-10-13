@@ -9,7 +9,7 @@ from pages.page_sign_in import render_sign_in_page
 from pages.page_homePage import render_homePage
 from pages.page_choiceStudent import render_choiceEtudiant
 from pages.page_QCM import render_QCM, render_qcm_html
-from pages.page_choiceTeacher import render_choiceTeacher, enregistrer_modification
+from pages.page_choiceTeacher import render_choiceTeacher, enregistrer_modifications
 from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
@@ -290,6 +290,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         btn_generate_ok,
         btn_submit_correction,
         correction_input,
+        correction_status,
         btn_back_QCM,
         btn_profil_QCM,
     ) = render_QCM()
@@ -361,6 +362,38 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             qcm_html_out,               # HTML QCM
             quiz_questions_state,       # alimente l'éditeur
             app_state,
+        ],
+    )
+
+    def appliquer_corrections_qcm(questions, erreurs):
+        print(
+            f"[CORRECTION QCM] callback reçu : "
+            f"{len(questions or [])} question(s), erreurs={erreurs!r}",
+            flush=True,
+        )
+        updated_questions, _, _, _, message = enregistrer_modifications(
+            questions,
+            erreurs,
+        )
+        print(
+            f"[CORRECTION QCM] callback terminé : message={message!r}",
+            flush=True,
+        )
+        return (
+            gr.update(value=render_qcm_html(updated_questions)),
+            updated_questions,
+            "",
+            message,
+        )
+
+    btn_submit_correction.click(
+        fn=appliquer_corrections_qcm,
+        inputs=[quiz_questions_state, correction_input],
+        outputs=[
+            qcm_html_out,
+            quiz_questions_state,
+            correction_input,
+            correction_status,
         ],
     )
 
@@ -501,8 +534,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     )
 
     save_question_button.click(
-        fn=enregistrer_modification,
-        inputs=[quiz_questions_state, question_selector, error_input],
+        fn=enregistrer_modifications,
+        inputs=[quiz_questions_state, error_input],
         outputs=[
             quiz_questions_state,
             question_input,

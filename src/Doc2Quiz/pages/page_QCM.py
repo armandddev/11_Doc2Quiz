@@ -20,8 +20,18 @@ def render_qcm_html(questions: list[dict]) -> str:
 
     for i, q in enumerate(questions):
         question_text  = (q.get("question") or "").replace("\n", "<br>")
-        correct_letter = (q.get("correct") or "").strip().upper()
         options        = q.get("options", [])
+        # Extrait la lettre de la réponse à la question
+        correct_value  = (
+            q.get("bonne_reponse")
+            or q.get("correct")
+            or ""
+        ).strip().upper()
+        correct_letter = (
+            correct_value[0]
+            if correct_value and correct_value[0].isalpha()
+            else ""
+        )
 
         parts.append(f"""
         <div style="background:#f8f9fa;border-left:4px solid #1B57A1;
@@ -41,7 +51,13 @@ def render_qcm_html(questions: list[dict]) -> str:
             if not opt:
                 continue
             letter     = opt[0].upper()
-            is_correct = (letter == correct_letter)
+            is_correct = (
+                letter == correct_letter
+                and (
+                    correct_value == letter
+                    or correct_value == opt.strip().upper()
+                )
+            )
             bg     = "#e8f4fd" if is_correct else "#ffffff"
             border = "#1B57A1" if is_correct else "#d1d5db"
             weight = "600"     if is_correct else "400"
@@ -135,6 +151,7 @@ def render_QCM():
                     scale=1,
                     elem_id="btn_send_correction",
                 )
+            correction_status = gr.Markdown()
 
             # Validation / passage à la suite
             with gr.Row(elem_id="widthPage"):
@@ -152,6 +169,7 @@ def render_QCM():
         btn_generate_ok,
         btn_submit_correction,
         correction_input,
+        correction_status,
         btn_back_QCM,
         btn_profil_QCM,
     )
