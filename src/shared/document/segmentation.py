@@ -1,7 +1,9 @@
 import json
 from .models import Section
 from .summary import summarize_text
+from shared.logging import get_logger
 
+logger = get_logger(__name__)
 
 def segment_text(text: str, titles: list[dict], summary_generator=None, llm_client=None) -> list[dict]:
     if not text.strip():
@@ -26,7 +28,7 @@ def _segment_with_llm(text: str, llm_client, summary_generator) -> list[dict]:
         i += CHUNK_SIZE - OVERLAP
 
     all_items = []
-    for chunk in chunks:
+    for chunk_idx, chunk in enumerate(chunks):
         prompt = (
             "Tu es un enseignant. Découpe ce texte de cours en sections fines.\n"
             "Chaque concept, chaque notion, chaque point numéroté doit être une section séparée.\n"
@@ -42,6 +44,7 @@ def _segment_with_llm(text: str, llm_client, summary_generator) -> list[dict]:
         try:
             res = llm_client.generate_text(prompt)
             raw = res.response if hasattr(res, "response") else str(res)
+            logger.info("RAW OLLAMA : %r", raw[:500])
 
             start = raw.find("[")
             if start == -1:
@@ -50,9 +53,11 @@ def _segment_with_llm(text: str, llm_client, summary_generator) -> list[dict]:
             if not fragment.endswith("]"):
                 last = fragment.rfind("},")
                 fragment = (fragment[:last + 1] if last != -1 else fragment) + "]"
+            logger.debug("Fragment à parser : %r", fragment[:300])
             items = json.loads(fragment)
             all_items.extend(items)
-        except Exception:
+        except Exception as e:
+            logger.warning("Échec parsing chunk %d : %s | raw=%r", chunk_idx, e, raw[:300])
             continue
 
     sections = []

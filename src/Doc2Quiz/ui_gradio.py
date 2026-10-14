@@ -9,7 +9,8 @@ from pages.page_sign_in import render_sign_in_page
 from pages.page_homePage import render_homePage
 from pages.page_choiceStudent import render_choiceEtudiant
 from pages.page_QCM import render_QCM, render_qcm_html
-from pages.page_choiceTeacher import render_choiceTeacher, enregistrer_modifications
+from pages.page_choiceTeacher import render_choiceTeacher
+from shared.qcm import enregistrer_modifications
 from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
