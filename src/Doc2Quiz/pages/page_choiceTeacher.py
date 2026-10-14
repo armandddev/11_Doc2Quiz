@@ -2,7 +2,7 @@ import base64
 from pathlib import Path
 import gradio as gr
 
-from shared.qcm import enregistrer_modifications
+from shared.qcm import enregistrer_modification
 
 
 def render_choiceTeacher():
