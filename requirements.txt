@@ -6,3 +6,5 @@ pymupdf>=1.28.2
 mistune==3.0.2
 python-dotenv
 pydantic-settings
+motor
+pymongo>=4.9
