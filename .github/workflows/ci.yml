@@ -11,26 +11,26 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      pg:
-        image: postgres:16
+      mongo:
+        image: mongo:7-jammy
         env:
-          POSTGRES_DB: app_db
-          POSTGRES_USER: app_user
-          POSTGRES_PASSWORD: app_secret
+          MONGO_INITDB_ROOT_USERNAME: app_user
+          MONGO_INITDB_ROOT_PASSWORD: app_secret
+          MONGO_INITDB_DATABASE: app_db
         ports:
-          - 5432:5432
+          - 27017:27017
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "mongosh --quiet --eval \"db.adminCommand('ping').ok\""
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     env:
-      DB_HOST: localhost
-      DB_PORT: 5432
-      DB_NAME: app_db
-      DB_USER: app_user
-      DB_PASSWORD: app_secret
+      MONGO_HOST: localhost
+      MONGO_PORT: 27017
+      MONGO_DB: app_db
+      MONGO_USER: app_user
+      MONGO_PASSWORD: app_secret
       OLLAMA_BASE_URL: http://localhost:11434
       LLM_MODEL: gemma4:12b
 
@@ -47,8 +47,3 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Initialiser la base de données
-        run: psql -h localhost -U app_user -d app_db -f src/Doc2Quiz/sql/init.sql
-        env:
-          PGPASSWORD: app_secret

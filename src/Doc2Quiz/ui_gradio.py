@@ -1,8 +1,10 @@
 from pathlib import Path
+import asyncio
 import gradio as gr
 from service.auth_service import handle_login, handle_register
 from context import AppContext, Role, UserContext
 from zoneinfo import ZoneInfo
+from bson import ObjectId
 
 from pages.page_register import render_register_page
 from pages.page_sign_in import render_sign_in_page
@@ -15,10 +17,8 @@ from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
 from pages.page_profil import render_profil
-from auth import update_user_profile
-from auth import delete_user_account
-
-from db import get_connection
+from auth import update_user_profile, delete_user_account
+from db import get_db, init_indexes
 
 from Template.MOCK_Question import get_template_quiz
 
@@ -38,10 +38,10 @@ def on_go_to_qcm(file, revision, difficulty, app_context):
     app_context.pending_revision   = revision
     app_context.pending_difficulty = difficulty
     return (
-        gr.update(visible=False),   # homepage
-        gr.update(visible=True),    # generateQCM_container
-        gr.update(visible=True),    # loading_section → spinner ON
-        gr.update(visible=False),   # qcm_section → masqué
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(visible=True),
+        gr.update(visible=False),
         app_context,
     )
 
@@ -65,10 +65,10 @@ def on_generate_qcm_and_display(app_context):
         traceback.print_exc()
 
     return (
-        gr.update(visible=False),   # loading_section → spinner OFF
-        gr.update(visible=True),    # qcm_section → contenu visible
-        gr.update(value=html),      # qcm_html_out → HTML du QCM
-        questions,                  # quiz_questions_state → alimente l'éditeur
+        gr.update(visible=False),
+        gr.update(visible=True),
+        gr.update(value=html),
+        questions,
         app_context,
     )
 
@@ -98,11 +98,6 @@ def route_after_generate(app_context: AppContext):
     )
 
 def load_question_view(questions: list, current_index: int):
-    """
-    Met à jour dynamiquement l'interface selon le type de question :
-    - qcm : active les options A/B/C/D et masque la saisie libre.
-    - exercice / cours_libre : masque le QCM et affiche la grande zone de texte.
-    """
     if not questions or current_index >= len(questions):
         end_html = """
             <div class="question-header-card">
@@ -152,7 +147,7 @@ def load_question_view(questions: list, current_index: int):
         ),
     )
 
-def update_profile_view(ctx: AppContext):
+async def update_profile_view(ctx: AppContext):
     user = ctx.user if ctx and ctx.user else None
 
     if not user:
@@ -164,17 +159,12 @@ def update_profile_view(ctx: AppContext):
         history_html = ""
         return title_html, info_html, history_html
 
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "SELECT created_at FROM users WHERE id = %s",
-                (user.user_id,),
-            )
-            row = cur.fetchone()
-
-    created_at = (
-        row["created_at"] if isinstance(row, dict) else row[0]
-    ) if row else None
+    db = get_db()
+    row = await db.users.find_one(
+        {"_id": ObjectId(user.user_id)},
+        {"created_at": 1}
+    )
+    created_at = row.get("created_at") if row else None
 
     if created_at:
         created_at = created_at.astimezone(ZoneInfo("Europe/Paris"))
@@ -358,10 +348,10 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         fn=on_generate_qcm_and_display,
         inputs=[app_state],
         outputs=[
-            loading_section,            # spinner OFF
-            qcm_section,                # contenu ON
-            qcm_html_out,               # HTML QCM
-            quiz_questions_state,       # alimente l'éditeur
+            loading_section,
+            qcm_section,
+            qcm_html_out,
+            quiz_questions_state,
             app_state,
         ],
     )
@@ -400,10 +390,10 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
     btn_back_QCM.click(
         fn=lambda: (
-            gr.update(visible=True),    # homepage
-            gr.update(visible=False),   # cache QCM container
-            gr.update(visible=True),    # remet spinner pour prochaine visite
-            gr.update(visible=False),   # cache section contenu
+            gr.update(visible=True),
+            gr.update(visible=False),
+            gr.update(visible=True),
+            gr.update(visible=False),
         ),
         inputs=None,
         outputs=[homepage_container, generateQCM_container, loading_section, qcm_section],
@@ -421,7 +411,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[choiceTeacher_container, exportQCM_container]
     )
 
-    # Redirection vers le profil
     target_profil_view = profil_container
     profil_navigation = [
         (btn_profil_result, result_container),
@@ -433,14 +422,14 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         (btn_profil_trainingQuiz,   training_quiz_container),
     ]
 
-    def go_to_profil(ctx):
-        t_html, u_html, h_html = update_profile_view(ctx)
+    async def go_to_profil(ctx):
+        t_html, u_html, h_html = await update_profile_view(ctx)
         return (
-            gr.update(visible=False),  # masque page courante
-            gr.update(visible=True),   # affiche profil
-            t_html,                    # profil_title_html
-            u_html,                    # user_info_html
-            h_html,                    # history_info_html
+            gr.update(visible=False),
+            gr.update(visible=True),
+            t_html,
+            u_html,
+            h_html,
         )
 
     for btn, current_page in profil_navigation:
@@ -558,22 +547,19 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[profil_container, homepage_container],
     )
 
-    # Connexion avec validation BDD
-    def on_login_submit(ctx, email, pwd):
+    async def on_login_submit(ctx, email, pwd):
         try:
-            updated_ctx, msg = handle_login(ctx, email, pwd)
-
+            updated_ctx, msg = await handle_login(ctx, email, pwd)
             print(
                 f"[SESSION ACTIVE] ID: {updated_ctx.user.user_id} | Nom:"
                 f" {updated_ctx.user.name} | Rôle: {updated_ctx.user.role}",
                 flush=True,
             )
-
             return (
                 updated_ctx,
                 gr.update(value=f"✅ {msg}", visible=True),
-                gr.update(visible=False),  # sign_in_container
-                gr.update(visible=True),   # homepage_container
+                gr.update(visible=False),
+                gr.update(visible=True),
             )
         except Exception as e:
             return (
@@ -589,10 +575,10 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[app_state, status, sign_in_container, homepage_container],
     )
 
-    def on_register_submit(ctx, email, pwd, name, fname):
+    async def on_register_submit(ctx, email, pwd, name, fname):
         print(f"--> [REGISTER] Création pour : {email} ({fname} {name})", flush=True)
         try:
-            updated_ctx, msg = handle_register(ctx, email, pwd, name, fname)
+            updated_ctx, msg = await handle_register(ctx, email, pwd, name, fname)
             print(f"--> [REGISTER OK] !", flush=True)
             return (
                 updated_ctx,
@@ -615,7 +601,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[app_state, status, register_view, sign_in_container],
     )
 
-    # 1. Clic sur "Modifier" : Pré-remplit les champs avec l'utilisateur connecté
     def open_edit_mode(ctx: AppContext):
         if not ctx or not ctx.user:
             return (
@@ -623,18 +608,16 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                 gr.update(visible=False),
                 "", "", "", "",
             )
-
         names = ctx.user.name.split(" ", 1)
         first_name = names[0]
         last_name = names[1] if len(names) > 1 else ""
-
         return (
-            gr.update(visible=False),  # masque la vue profil normale
-            gr.update(visible=True),   # affiche le formulaire de modification
+            gr.update(visible=False),
+            gr.update(visible=True),
             first_name,
             last_name,
             ctx.user.email,
-            "",  # champ mot de passe vide par défaut
+            "",
         )
 
     btn_edit_profile.click(
@@ -650,17 +633,15 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         ],
     )
 
-    # 2. Clic sur "Annuler" : Rebascule sur l'affichage sans modifier
     btn_cancel_edit.click(
         fn=lambda: (gr.update(visible=True), gr.update(visible=False)),
         inputs=None,
         outputs=[view_profile_box, edit_profile_box],
     )
 
-    # 3. Clic sur "Enregistrer" : Met à jour la BDD, app_state et l'affichage HTML
-    def on_save_profile(ctx: AppContext, fname, lname, email, new_pwd):
+    async def on_save_profile(ctx: AppContext, fname, lname, email, new_pwd):
         try:
-            updated_user = update_user_profile(
+            updated_user = await update_user_profile(
                 user_id=ctx.user.user_id,
                 first_name=fname,
                 last_name=lname,
@@ -668,7 +649,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                 new_password=new_pwd,
             )
             ctx.user = updated_user
-            t_html, u_html, h_html = update_profile_view(ctx)
+            t_html, u_html, h_html = await update_profile_view(ctx)
             return (
                 ctx,
                 gr.update(visible=True),
@@ -702,7 +683,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
     confirmation_suppression = gr.Checkbox(value=False, visible=False)
 
-    def on_delete_profile(ctx: AppContext, confirmed: bool):
+    async def on_delete_profile(ctx: AppContext, confirmed: bool):
         if not confirmed:
             return ctx, gr.skip(), gr.skip(), gr.skip()
 
@@ -711,34 +692,24 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                 ctx,
                 gr.update(visible=True),
                 gr.update(visible=False),
-                gr.update(
-                    value="❌ Erreur : aucun utilisateur connecté.", visible=True
-                ),
+                gr.update(value="❌ Erreur : aucun utilisateur connecté.", visible=True),
             )
 
         try:
-            user_id = ctx.user.user_id
-            delete_user_account(user_id)
-
+            await delete_user_account(ctx.user.user_id)
             cleared_ctx = AppContext(user=None)
-
             return (
                 cleared_ctx,
                 gr.update(visible=False),
                 gr.update(visible=True),
-                gr.update(
-                    value="✅ Votre compte a été définitivement supprimé.",
-                    visible=True,
-                ),
+                gr.update(value="✅ Votre compte a été définitivement supprimé.", visible=True),
             )
         except Exception as e:
             return (
                 ctx,
                 gr.update(visible=True),
                 gr.update(visible=False),
-                gr.update(
-                    value=f"❌ Erreur lors de la suppression : {e}", visible=True
-                ),
+                gr.update(value=f"❌ Erreur lors de la suppression : {e}", visible=True),
             )
 
     btn_delete_profile.click(
@@ -758,7 +729,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             return [ctx, confirmation];
         }""",
     )
-
+    demo.load(fn=init_indexes)
 
 if __name__ == "__main__":
     demo.launch(
