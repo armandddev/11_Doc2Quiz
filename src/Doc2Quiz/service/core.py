@@ -24,14 +24,14 @@ _REVISION_LABELS = {
 
 # Extraction
 
-def process_uploaded_pdf(file_input) -> dict:
+def process_uploaded_pdf(file_input, revision: str = "Les deux") -> dict:
     filepath = file_input.name if hasattr(file_input, "name") else str(file_input)
-    return extractFromPdf(filepath)
+    return extractFromPdf(filepath, revision=revision)
 
 
-def process_uploaded_md(file_input) -> dict:
+def process_uploaded_md(file_input, revision: str = "Les deux") -> dict:
     filepath = file_input.name if hasattr(file_input, "name") else str(file_input)
-    return extractFromMd(filepath)
+    return extractFromMd(filepath, revision=revision)
 
 
 # Parsing JSON robuste
@@ -174,9 +174,9 @@ def generation_qcm(
     extension = Path(filename).suffix.lower()
 
     if extension == ".md":
-        document = process_uploaded_md(file_input)
+        document = process_uploaded_md(file_input, revision=revision)
     elif extension == ".pdf":
-        document = process_uploaded_pdf(file_input)
+        document = process_uploaded_pdf(file_input, revision=revision)
     else:
         raise ValueError(f"Format de fichier non supporté : {extension}")
 

@@ -7,8 +7,7 @@ from .detection import detection_section_displine
 from .models import Section
 from Doc2Quiz.ollama_client import OllamaWrapper
 
-
-def extractFromMd(file_input) -> dict:
+def extractFromMd(file_input, revision: str = "Les deux") -> dict:
     if isinstance(file_input, str):
         with open(file_input, "r", encoding="utf-8") as f:
             raw_text = f.read()
@@ -22,7 +21,7 @@ def extractFromMd(file_input) -> dict:
     tree = markdown_parser(raw_text)
     titles = extractTitlesFromTree(tree)
     text = extractPlainTextFromTree(tree)
-    sections = segment_text(text, titles, llm_client=OllamaWrapper())
+    sections = segment_text(text, titles, llm_client=OllamaWrapper(), revision=revision)
     sections = _detect_sections(sections)
 
     return {
@@ -33,7 +32,6 @@ def extractFromMd(file_input) -> dict:
         "pages": 1,
         "upload_timestamp": datetime.now(timezone.utc).isoformat(),
     }
-
 
 def extractTitlesFromTree(tree: list) -> list:
     titles = []
@@ -87,8 +85,7 @@ def get_node_text(node: dict) -> str:
     return text
 
 
-def extractFromPdf(file: str) -> dict:
-    # Open file
+def extractFromPdf(file: str, revision: str = "Les deux") -> dict:
     try:
         doc = pymupdf.open(file)
     except Exception:
@@ -96,18 +93,16 @@ def extractFromPdf(file: str) -> dict:
     full_text = ""
     count_page = 0
     titles = extractTitles(doc)
-    # Extrait le texte de la page et l'ajoute au résultat
     for page in doc:
         count_page += 1
         full_text += page.get_text()
 
-    # Détection PDF scanné
     if len(full_text.strip()) < 20 or doc.page_count < 1:
         doc.close()
         raise Exception("PDF not exploitable")
 
     doc.close()
-    sections = segment_text(full_text, titles, llm_client=OllamaWrapper())
+    sections = segment_text(full_text, titles, llm_client=OllamaWrapper(), revision=revision)
     sections = _detect_sections(sections)
 
     return {

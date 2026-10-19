@@ -1,85 +1,195 @@
+from __future__ import annotations
+
 import json
-from .models import Section
-from .summary import summarize_text
 from shared.logging import get_logger
+from typing import Any
 
-logger = get_logger(__name__)
+logger = get_logger("segmentation")
+_CHUNK_SIZE    = 3000
+_CHUNK_OVERLAP = 100
+MAX_RETRIES    = 3
 
-def segment_text(text: str, titles: list[dict], summary_generator=None, llm_client=None) -> list[dict]:
-    if not text.strip():
-        return []
+_SYSTEM_PROMPTS = {
+    "Questions de cours": (
+        "Tu es un assistant pédagogique. "
+        "Ton rôle est de segmenter un texte en sections de cours théoriques "
+        "(définitions, concepts, mécanismes). "
+        "Ignore les exercices, calculs et mises en application."
+    ),
+    "Exercices": (
+        "Tu es un assistant pédagogique. "
+        "Ton rôle est de segmenter un texte en sections d'exercices pratiques "
+        "(calculs, démarches, cas concrets, applications numériques). "
+        "Ignore les parties purement théoriques."
+    ),
+    "Les deux": (
+        "Tu es un assistant pédagogique. "
+        "Ton rôle est de segmenter un texte en sections exploitables, "
+        "qu'elles soient théoriques ou pratiques."
+    ),
+}
 
-    if llm_client is not None:
-        sections = _segment_with_llm(text, llm_client, summary_generator)
-        if sections:
+_PROMPT_FOCUS = {
+    "Questions de cours": "notions de cours théoriques (définitions, propriétés, concepts)",
+    "Exercices":          "exercices pratiques et applications numériques",
+    "Les deux":           "notions de cours ET exercices pratiques",
+}
+
+
+def _build_prompt(chunk: str, titles: list, revision: str) -> str:
+    focus = _PROMPT_FOCUS.get(revision, _PROMPT_FOCUS["Les deux"])
+    titles_str = ", ".join(t.get("text", "") for t in titles[:10]) if titles else "aucun"
+
+    return (
+        f"Voici un extrait de document universitaire.\n"
+        f"Titres détectés : {titles_str}\n\n"
+        f"Texte :\n{chunk}\n\n"
+        f"Identifie les sections portant sur {focus}.\n"
+        f"Pour chaque section, retourne UNIQUEMENT son titre court.\n"
+        f"Retourne UNIQUEMENT un tableau JSON de strings, sans markdown :\n"
+        f'["Titre section 1", "Titre section 2", ...]'
+    )
+
+
+def _chunk_text(text: str) -> list[str]:
+    """Découpe le texte en chunks avec chevauchement."""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + _CHUNK_SIZE
+        chunks.append(text[start:end])
+        start = end - _CHUNK_OVERLAP
+        if start >= len(text):
+            break
+    return chunks
+
+
+def _segment_with_llm(
+    chunk: str, titles: list, llm_client: Any, chunk_idx: int, revision: str = "Les deux"
+) -> list[dict]:
+    system_prompt = _SYSTEM_PROMPTS.get(revision, _SYSTEM_PROMPTS["Les deux"])
+    prompt = _build_prompt(chunk, titles, revision)
+    options = {"num_ctx": 8192, "num_predict": -1}
+
+    for attempt in range(MAX_RETRIES):
+        raw = ""
+        try:
+            res = llm_client.generate_text(prompt, system=system_prompt, options=options)
+            raw = res.response if hasattr(res, "response") else str(res)
+        except Exception as exc:
+            logger.warning("Erreur LLM chunk %d (tentative %d/%d) : %s",
+                           chunk_idx, attempt + 1, MAX_RETRIES, exc)
+            continue
+
+        if raw.strip().lower() == "inutile":
+            logger.info("Chunk %d ignoré (contenu non exploitable)", chunk_idx)
+            return []
+
+        if not raw.strip():
+            logger.warning("Réponse vide chunk %d (tentative %d/%d), retry...",
+                           chunk_idx, attempt + 1, MAX_RETRIES)
+            continue
+
+        section_titles = _parse_titles(raw, chunk_idx)
+        if section_titles is not None:
+            sections = _split_chunk_by_titles(chunk, section_titles, chunk_idx)
             return sections
 
-    return []
+        logger.warning("JSON invalide chunk %d (tentative %d/%d) : %r",
+                       chunk_idx, attempt + 1, MAX_RETRIES, raw[:150])
+
+    logger.error("Échec segmentation chunk %d après %d tentatives — section brute conservée",
+                 chunk_idx, MAX_RETRIES)
+    return [{"title": f"Section {chunk_idx + 1}", "text": chunk}]
 
 
-def _segment_with_llm(text: str, llm_client, summary_generator) -> list[dict]:
-    CHUNK_SIZE = 6000
-    OVERLAP    = 200
+def _parse_titles(raw: str, chunk_idx: int) -> list[str] | None:
+    """Parse la liste de titres retournée par le LLM."""
+    text = raw.strip()
+    if text.startswith("```"):
+        lines = [l for l in text.splitlines() if not l.strip().startswith("```")]
+        text = "\n".join(lines).strip()
 
-    chunks = []
-    i = 0
-    while i < len(text):
-        chunks.append(text[i:i + CHUNK_SIZE])
-        i += CHUNK_SIZE - OVERLAP
+    # Cherche le tableau JSON
+    start = text.find("[")
+    end   = text.rfind("]") + 1
+    if start == -1 or end <= start:
+        return None
 
-    all_items = []
-    for chunk_idx, chunk in enumerate(chunks):
-        prompt = (
-            "Tu es un enseignant. Découpe ce texte de cours en sections fines.\n"
-            "Chaque concept, chaque notion, chaque point numéroté doit être une section séparée.\n"
-            "Une page peut contenir plusieurs sections.\n"
-            "Réponds UNIQUEMENT avec un tableau JSON, sans markdown :\n"
-            '[{"titre": "...", "contenu": "..."}]\n\n'
-            "Règles :\n"
-            "- Une section = un seul concept ou notion\n"
-            "- Le contenu doit être le texte original, pas un résumé\n"
-            "- Minimum 3 mots par section\n\n"
-            f"{chunk}"
-        )
-        try:
-            res = llm_client.generate_text(prompt)
-            raw = res.response if hasattr(res, "response") else str(res)
-            logger.info("RAW OLLAMA : %r", raw[:500])
+    try:
+        parsed = json.loads(text[start:end])
+        if isinstance(parsed, list) and all(isinstance(t, str) for t in parsed):
+            return [t.strip() for t in parsed if t.strip()]
+    except json.JSONDecodeError:
+        pass
+    return None
 
-            start = raw.find("[")
-            if start == -1:
-                continue
-            fragment = raw[start:].rstrip()
-            if not fragment.endswith("]"):
-                last = fragment.rfind("},")
-                fragment = (fragment[:last + 1] if last != -1 else fragment) + "]"
-            logger.debug("Fragment à parser : %r", fragment[:300])
-            items = json.loads(fragment)
-            all_items.extend(items)
-        except Exception as e:
-            logger.warning("Échec parsing chunk %d : %s | raw=%r", chunk_idx, e, raw[:300])
-            continue
+
+def _split_chunk_by_titles(chunk: str, section_titles: list[str], chunk_idx: int) -> list[dict]:
+    """
+    Découpe le chunk en sections en cherchant les titres dans le texte.
+    Si un titre n'est pas trouvé, on garde quand même la section suivante.
+    """
+    if not section_titles:
+        return [{"title": f"Section {chunk_idx + 1}", "text": chunk}]
+
+    # Cherche la position de chaque titre dans le chunk
+    positions = []
+    for title in section_titles:
+        # Cherche le titre ou une version courte (premiers 30 chars)
+        key = title[:30]
+        pos = chunk.find(key)
+        if pos != -1:
+            positions.append((pos, title))
+
+    if not positions:
+        # Aucun titre trouvé → section unique
+        return [{"title": section_titles[0] if section_titles else f"Section {chunk_idx + 1}",
+                 "text": chunk}]
+
+    positions.sort(key=lambda x: x[0])
 
     sections = []
-    for idx, item in enumerate(all_items, start=1):
-        contenu = item.get("contenu", "").strip()
-        if not contenu:
-            continue
-        sections.append(_make_section(
-            idx, item.get("titre") or f"Section {idx}",
-            None, contenu, summary_generator, [], []
-        ))
-    return sections
+    for i, (pos, title) in enumerate(positions):
+        end = positions[i + 1][0] if i + 1 < len(positions) else len(chunk)
+        text = chunk[pos:end].strip()
+        if text:
+            sections.append({"title": title, "text": text})
 
+    return sections if sections else [{"title": f"Section {chunk_idx + 1}", "text": chunk}]
 
-def _make_section(index, title, level, text, summary_generator, notion_ids, pages) -> dict:
-    section = Section(
-        id=f"section-{index:03d}",
-        title=title,
-        level=level,
-        text=text,
-        summary=summarize_text(text, summary_generator),
-        notion_ids=notion_ids,
-        pages=pages,
+def segment_text(
+    text: str,
+    titles: list,
+    llm_client: Any,
+    revision: str = "Les deux",
+) -> list[dict]:
+    """
+    Segmente un texte complet en sections exploitables via LLM.
+
+    Args:
+        text:       Texte extrait du document
+        titles:     Titres détectés (pour contexte)
+        llm_client: Instance OllamaWrapper
+        revision:   "Questions de cours" | "Exercices" | "Les deux"
+
+    Returns:
+        Liste de dicts {"title": ..., "text": ...}
+    """
+    if not text.strip():
+        logger.warning("Texte vide — segmentation ignorée")
+        return []
+
+    chunks = _chunk_text(text)
+    logger.info(
+        "Segmentation démarrée — %d chunk(s), revision=%r", len(chunks), revision
     )
-    return section.to_dict()
+
+    all_sections: list[dict] = []
+    for idx, chunk in enumerate(chunks):
+        sections = _segment_with_llm(chunk, titles, llm_client, chunk_idx=idx, revision=revision)
+        all_sections.extend(sections)
+        logger.info("Chunk %d/%d → %d section(s)", idx + 1, len(chunks), len(sections))
+
+    logger.info("Segmentation terminée — %d section(s) au total", len(all_sections))
+    return all_sections
