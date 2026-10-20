@@ -1,6 +1,6 @@
 # Sprint 3 : Migration NoSQL + Contexte pédagogique + Stockage des retours + Export
 
-**Objectif** : migrer vers NoSQL, permettre à l'enseignant de définir un contexte pédagogique réutilisable, poser la fondation du système d'apprentissage par les erreurs (stockage + résumé LLM), et rendre l'export disponible dès maintenant.
+**Objectif** : migrer vers NoSQL, permettre à l'enseignant de définir un contexte pédagogique réutilisable, poser la fondation du système d'apprentissage par les erreurs (stockage + résumé LLM), rendre l'export disponible dès maintenant, et conduire les tests d'évaluation du pipeline de segmentation.
 
 ---
 
@@ -246,3 +246,100 @@ En tant qu'enseignant ou étudiant, je veux **retrouver mes QCM sauvegardés dan
 ---
 
 **Démo de sprint** : un enseignant génère un QCM, valide et supprime des questions une par une (avec régénération sur l'une d'elles), ajoute 2 questions supplémentaires, exporte en XML — puis importe un vieux QCM GIFT dans son profil et le retrouve dans son historique.
+
+---
+
+## US-35 : Test de taille maximale de document (3 pts)
+
+En tant qu'équipe, je veux **déterminer la taille maximale de document qui produit un traitement de qualité** afin de fixer des limites documentées et d'orienter les utilisateurs.
+
+**CA :**
+
+- Une batterie de tests est conduite sur des documents de tailles croissantes (1 page, 5 pages, 10 pages, 20 pages, 50 pages+).
+- Pour chaque taille, on mesure : nombre de sections détectées, qualité des sections (pertinence, cohérence), temps de traitement total, taux d'échec de parsing JSON.
+- Un seuil de taille "optimale" et un seuil "maximum acceptable" sont identifiés et documentés.
+- La limite de taille dans l'interface (actuellement 20 Mo) est ajustée si nécessaire en fonction des résultats.
+
+**Sous-tâches techniques :**
+
+1. Constituer un corpus de test : au moins 5 documents de tailles différentes, couvrant des matières variées.
+2. Script de test automatisé qui lance la segmentation sur chaque document et collecte les métriques (nb sections, temps, taux d'échec).
+3. Évaluation manuelle de la qualité des sections produites (grille de notation : pertinence du découpage, cohérence des titres, complétude du contenu).
+4. Rapport de résultats : tableau taille → métriques, identification des seuils, recommandation sur la limite à afficher dans l'interface.
+
+**Cas à tester :** document d'une seule ligne, document avec une seule très longue section sans titre, document de 50+ pages dense.
+
+**Definition of Done :** rapport de test produit avec seuils identifiés, limite d'interface ajustée si nécessaire et documentée dans le doc de thomas.
+
+---
+
+## US-36 : Test de segmentation avec VLM ou LLM alternatif (5 pts)
+
+En tant qu'équipe, je veux **tester des approches alternatives de segmentation** (VLM pour les documents avec représentations visuelles, ou LLM de taille différente) afin d'identifier la meilleure combinaison qualité/vitesse.
+
+**CA :**
+
+- Au moins deux approches alternatives sont testées et comparées au pipeline de segmentation actuel.
+- Les solutions combinées sont explorées : ex. VLM pour extraire les schémas/tableaux + LLM texte pour le contenu narratif.
+- Chaque approche est évaluée sur les mêmes documents de référence que US-26.
+- Un rapport comparatif documente les avantages et limites de chaque approche.
+
+**Sous-tâches techniques :**
+
+1. Identifier les modèles candidats disponibles via Ollama : VLM (ex. `llava`, `minicpm-v`) pour les documents avec images/schémas, LLM léger alternatif (ex. `phi3`, `llama3.2:1b`) pour la vitesse.
+2. Implémenter un wrapper de segmentation alternatif pour chaque modèle testé, en réutilisant l'interface existante (`segment_text`).
+3. Définir une grille de comparaison : qualité du découpage, détection des schémas/formules, temps de traitement, taux d'erreur JSON.
+4. Tester la solution combinée VLM + LLM sur au moins 2 documents contenant des représentations visuelles (schémas, graphiques, formules).
+5. Rapport comparatif : tableau des résultats par approche + recommandation sur l'approche à adopter ou à combiner avec le pipeline actuel.
+
+**Cas à tester :** document avec schémas et texte (VLM vs LLM texte seul), document purement textuel (LLM léger vs modèle actuel), document avec formules LaTeX.
+
+**Definition of Done :** rapport comparatif produit sur au moins 3 approches, recommandation argumentée incluse.
+
+---
+
+## US-37 : Comparaison génération avec/sans lecture du document (5 pts)
+
+En tant qu'équipe, je veux **comparer la qualité des questions générées avec et sans lecture complète du document**, en testant si indiquer uniquement la thématique suffit à produire des questions de qualité comparable.
+
+**CA :**
+
+- Pour un même ensemble de sections, deux générations sont produites : une avec le contenu complet de la section (pipeline actuel), une avec uniquement le titre/thématique de la section.
+- La qualité des deux générations est comparée sur des critères définis : pertinence, précision, ancrage dans le contenu du cours, difficulté.
+- Le gain de temps de la version "thématique seule" est mesuré.
+- Si la qualité est jugée acceptable, cette approche peut devenir un mode "rapide" dans le pipeline.
+
+**Sous-tâches techniques :**
+
+1. Implémenter un mode de génération `prompt_mode: "full" | "topic_only"` dans le pipeline, paramétrable sans changer le reste du code.
+2. Conduire la comparaison sur au moins 5 sections de matières différentes, en générant les deux versions pour chaque section.
+3. Grille d'évaluation manuelle : un membre de l'équipe n'ayant pas vu le document note chaque question sur 3 critères (pertinence, précision, difficulté) sans savoir laquelle vient de quel mode.
+4. Mesure du gain de temps (les tokens du contenu n'étant plus envoyés, le prompt est plus court → inférence plus rapide).
+5. Rapport : tableau comparatif des scores, mesure de gain de temps, recommandation sur l'utilité d'un mode rapide.
+
+**Cas à tester :** section très courte (thématique seule ≈ contenu complet), section dense avec données chiffrées (la thématique seule risque de produire des questions génériques), section avec formules (le LLM peut-il deviner les formules depuis la thématique ?).
+
+**Definition of Done :** comparaison conduite en double aveugle sur 5 sections minimum, rapport produit avec recommandation claire sur l'opportunité d'un mode rapide.
+
+---
+
+## US-38 : Analyse des sorties LLM indispensables vs évitables (3 pts)
+
+En tant qu'équipe, je veux **identifier quelles sorties du premier LLM sont réellement indispensables** au pipeline afin d'éliminer les appels inutiles et gagner en efficacité.
+
+**CA :**
+
+- Chaque sortie produite par le LLM en phase de segmentation/analyse est évaluée : est-elle utilisée en aval ? améliore-t-elle la qualité de la génération ? ou peut-elle être remplacée par du calcul algorithmique ?
+- Les sorties jugées évitables sont supprimées ou remplacées, et l'impact sur la qualité finale est mesuré.
+- Le nombre d'appels LLM total par document est réduit d'au moins 1 appel par section suite à cette analyse.
+
+**Sous-tâches techniques :**
+
+1. Cartographier toutes les sorties du premier LLM actuellement utilisées : résumé de section, détection content-type, détection matière, titre de section.
+2. Pour chaque sortie, évaluer : utilisée par quel module en aval ? peut-elle être calculée algorithmiquement (ex. détection content-type par heuristique de mots-clés au lieu d'un LLM) ?
+3. Tester la suppression ou le remplacement algorithmique de chaque sortie candidate, en mesurant l'impact sur la qualité des questions générées.
+4. Rapport : tableau sortie → utilisée/évitable/remplaçable + gain en nombre d'appels LLM + impact qualité mesuré.
+
+**Cas à tester :** génération sans résumé de section injecté dans le prompt (la qualité des questions baisse-t-elle ?), détection content-type par heuristique vs LLM (taux de concordance).
+
+**Definition of Done :** rapport produit, au moins une sortie supprimée ou remplacée avec impact qualité documenté, gain en nombre d'appels LLM mesuré et chiffré.
