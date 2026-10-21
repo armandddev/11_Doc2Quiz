@@ -32,6 +32,30 @@ def render_qcm_html(data, current_index: int = 0, total_questions: int = None) -
     <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     '''
 
+    parts = [mathjax, '<div style="max-width:820px;margin:0 auto;padding:20px 10px;">']
+
+    for i, q in enumerate(questions):
+        question_text  = (q.get("question") or "").replace("\n", "<br>")
+        options        = q.get("options", [])
+        new_badge = (
+            '<span style="display:inline-block;background:#198754;color:#fff;'
+            'font-size:.72rem;padding:3px 9px;border-radius:12px;'
+            'margin-left:8px;">Questions ajoutées</span>'
+            if q.get("is_new") else ""
+        )
+        # Extrait la lettre de la réponse à la question
+        correct_value  = (
+            q.get("bonne_reponse")
+            or q.get("correct")
+            or ""
+        ).strip().upper()
+        correct_letter = (
+            correct_value[0]
+            if correct_value and correct_value[0].isalpha()
+            else ""
+        )
+
+        parts.append(f"""
     question_text = (question_data.get("question") or "").replace("\n", "<br>")
     options = question_data.get("options", [])
 
@@ -54,6 +78,10 @@ def render_qcm_html(data, current_index: int = 0, total_questions: int = None) -
         <div style="background:#f8f9fa;border-left:4px solid #1B57A1;
                     border-radius:8px;padding:20px 22px;margin-bottom:20px;
                     box-shadow:0 1px 4px rgba(0,0,0,.06);">
+          <p style="font-weight:700;font-size:.9rem;color:#1B57A1;
+                    margin:0 0 8px 0;text-transform:uppercase;letter-spacing:.05em;">
+            Question {i + 1}{new_badge}
+          </p>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <p style="font-weight:700;font-size:.9rem;color:#1B57A1;
                       margin:0;text-transform:uppercase;letter-spacing:.05em;">
@@ -161,6 +189,19 @@ def render_QCM():
             # Aperçu HTML dynamique
             qcm_html_out = gr.HTML(value="", elem_id="qcm_preview")
 
+            with gr.Column(elem_id="expand_qcm"):
+                gr.Markdown("### Approfondir le QCM")
+                section_selector = gr.Dropdown(
+                    choices=[],
+                    label="Sections à approfondir (vide = toutes les sections)",
+                    multiselect=True,
+                    interactive=True,
+                )
+                btn_add_questions = gr.Button(
+                    "Ajouter des questions",
+                    variant="secondary",
+                )
+                expansion_status = gr.Markdown()
             # Boutons de navigation
             with gr.Row():
                 btn_prev_qcm = gr.Button("← Question précédente", variant="secondary")
@@ -224,6 +265,9 @@ def render_QCM():
         btn_submit_correction,
         correction_input,
         correction_status,
+        section_selector,
+        btn_add_questions,
+        expansion_status,
         btn_back_QCM,
         btn_profil_QCM,
     )

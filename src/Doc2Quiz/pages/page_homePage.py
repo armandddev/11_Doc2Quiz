@@ -52,7 +52,12 @@ def render_homePage():
             )
 
 
-    return homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate, btn_profil_homePage
-
-
+    return (
+        homepage_container,
+        upload_zone,
+        difficulty_dropdown,
+        revision_choice,
+        btn_to_generate,
+        btn_profil_homePage,
+    )
 
