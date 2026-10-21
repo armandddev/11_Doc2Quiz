@@ -339,6 +339,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         expansion_status,
         btn_back_QCM,
         btn_profil_QCM,
+        questions_store,   
+        current_index,   
     ) = render_QCM()
 
     register_view, reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_to_login = render_register_page()
