@@ -13,6 +13,8 @@ from pages.page_choiceStudent import render_choiceEtudiant
 from pages.page_QCM import render_QCM, render_qcm_html
 from pages.page_choiceTeacher import render_choiceTeacher
 from shared.qcm import enregistrer_modifications
+from service.core import expand_qcm
+from Doc2Quiz.ollama_client import OllamaWrapper
 from pages.page_exportQCM import render_exportQCM
 from pages.page_trainingQuiz import render_training_quiz
 from pages.page_quizResult import render_quiz_result
@@ -69,8 +71,51 @@ def on_generate_qcm_and_display(app_context):
         gr.update(visible=True),
         gr.update(value=html),
         questions,
+        gr.update(choices=section_choices(questions), value=[]),
         app_context,
     )
+
+# Récupère les sections unique 
+def section_choices(questions: list[dict]) -> list[tuple[str, str]]:
+    choices = []
+    seen = set()
+    for question in questions or []:
+        section = question.get("section", {})
+        if not isinstance(section, dict):
+            continue
+        key = str(section.get("id") or section.get("title") or "")
+        if key and key not in seen:
+            seen.add(key)
+            choices.append((section.get("title") or key, key))
+    return choices
+
+# Ajoute des questions par section 
+def on_add_questions(questions, selected_sections, app_context):
+    """Ajoute deux questions par section et actualise l'aperçu."""
+    try:
+        expanded = expand_qcm(
+            questions,
+            OllamaWrapper(),
+            level=app_context.pending_difficulty,
+            revision=app_context.pending_revision,
+            selected_sections=selected_sections or None,
+        )
+        app_context.sections = expanded
+        return (
+            render_qcm_html(expanded),
+            expanded,
+            gr.update(choices=section_choices(expanded)),
+            app_context,
+            f"**{len(expanded) - len(questions)} question(s) ajoutée(s).**",
+        )
+    except (ValueError, RuntimeError) as error:
+        return (
+            render_qcm_html(questions),
+            questions,
+            gr.update(choices=section_choices(questions)),
+            app_context,
+            f"**Ajout impossible :** {error}",
+        )
 
 def route_after_generate(app_context: AppContext):
     if not app_context or not app_context.is_authenticated:
@@ -271,7 +316,14 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
     quiz_index_state = gr.State(value=0)
 
     result_container, result_details_html, btn_save, btn_discard, btn_profil_result = render_quiz_result()
-    homepage_container, upload_zone, difficulty_dropdown, revision_choice, btn_to_generate, btn_profil_homePage = render_homePage()
+    (
+        homepage_container,
+        upload_zone,
+        difficulty_dropdown,
+        revision_choice,
+        btn_to_generate,
+        btn_profil_homePage,
+    ) = render_homePage()
 
     (
         generateQCM_container,
@@ -282,6 +334,9 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         btn_submit_correction,
         correction_input,
         correction_status,
+        section_selector,
+        btn_add_questions,
+        expansion_status,
         btn_back_QCM,
         btn_profil_QCM,
     ) = render_QCM()
@@ -352,7 +407,20 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             qcm_section,
             qcm_html_out,
             quiz_questions_state,
+            section_selector,
             app_state,
+        ],
+    )
+
+    btn_add_questions.click(
+        fn=on_add_questions,
+        inputs=[quiz_questions_state, section_selector, app_state],
+        outputs=[
+            qcm_html_out,
+            quiz_questions_state,
+            section_selector,
+            app_state,
+            expansion_status,
         ],
     )
 

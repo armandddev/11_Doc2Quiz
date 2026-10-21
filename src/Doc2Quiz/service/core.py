@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from difflib import SequenceMatcher
 
 from Doc2Quiz.service.anti_verbatim import is_too_similar
 from Doc2Quiz.config import settings
@@ -69,6 +70,7 @@ def generate_qcm_question(
     level: str,
     revision_type: str,
     llm_client,
+    excluded_questions: list[str] | None = None,
 ) -> dict:
     """
     Génère une question QCM (4 options, 1 correcte) pour une section.
@@ -88,10 +90,20 @@ def generate_qcm_question(
         '- "correct" contient uniquement la lettre : A, B, C ou D'
     )
 
+    exclusion_prompt = ""
+    if excluded_questions:
+        exclusion_prompt = (
+            "\nQuestions déjà présentes dans le QCM. La nouvelle question doit "
+            "évaluer un aspect différent et ne pas reprendre leur formulation :\n"
+            + "\n".join(f"- {question}" for question in excluded_questions)
+            + "\n"
+        )
+
     prompt_initial = (
         f"Tu es un enseignant expert. Génère {revision_label} de type QCM "
         f"adaptée au {level_label}.\n\n"
         f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
         f"{JSON_FORMAT}"
     )
 
@@ -99,6 +111,7 @@ def generate_qcm_question(
         "Ta question précédente était trop proche mot pour mot du texte source. "
         "Reformule-la avec une structure et des mots complètement différents.\n\n"
         f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
         f"{JSON_FORMAT}"
     )
 
@@ -133,8 +146,18 @@ def generate_qcm_question(
         options       = parsed.get("options", [])
         correct       = parsed.get("correct", "A").strip().upper()
 
-        # Anti-verbatim
-        if not is_too_similar(question_text, source_text):
+        is_duplicate = any(
+            SequenceMatcher(
+                None,
+                question_text.casefold().strip(),
+                existing.casefold().strip(),
+            ).ratio() >= 0.9
+            for existing in excluded_questions or []
+            if existing
+        )
+
+        # Anti-verbatim et anti-répétition
+        if not is_too_similar(question_text, source_text) and not is_duplicate:
             logger.info("Question acceptée (tentative %d)", attempt + 1)
             return {
                 "question": question_text,
@@ -143,7 +166,8 @@ def generate_qcm_question(
                 "type":     "qcm",
             }
 
-        logger.warning("Tentative %d rejetée — trop similaire au source", attempt + 1)
+        reason = "déjà présente" if is_duplicate else "trop similaire au source"
+        logger.warning("Tentative %d rejetée — question %s", attempt + 1, reason)
         last_result = {
             "question": question_text,
             "options":  options,
@@ -156,6 +180,79 @@ def generate_qcm_question(
         settings.anti_verbatim_max_retries + 1,
     )
     return last_result or {"question": "", "options": [], "correct": "", "type": "qcm"}
+
+# Ajouts de questions au QCM
+def expand_qcm(
+    questions: list[dict],
+    llm_client,
+    level: str = "",
+    revision: str = "Les deux",
+    selected_sections: list[str] | None = None,
+    questions_per_section: int = 2,
+) -> list[dict]:
+    """Génère des questions supplémentaires pour les sections demandées."""
+    if not questions:
+        raise ValueError("Aucun QCM existant à compléter.")
+    if questions_per_section < 1:
+        raise ValueError("Le nombre de questions supplémentaires doit être positif.")
+
+    sections = {}
+    for question in questions:
+        section = question.get("section")
+        if not isinstance(section, dict):
+            continue
+        key = str(section.get("id") or section.get("title") or "")
+        if key:
+            sections.setdefault(key, section)
+
+    if not sections:
+        raise ValueError("Le QCM ne contient aucune section exploitable.")
+
+    selected = set(selected_sections or sections)
+    unknown = selected - sections.keys()
+    if unknown:
+        raise ValueError("Une section sélectionnée n'existe pas dans ce QCM.")
+
+    expanded = list(questions)
+    excluded = [
+        str(question.get("question", ""))
+        for question in expanded
+        if question.get("question")
+    ]
+    added_count = 0
+
+    for key, section in sections.items():
+        if key not in selected:
+            continue
+        source_text = section.get("text") or section.get("content") or ""
+        if not str(source_text).strip():
+            logger.warning("Section %s ignorée : contenu insuffisant.", key)
+            continue
+
+        for _ in range(questions_per_section):
+            generated = generate_qcm_question(
+                str(source_text),
+                level,
+                revision,
+                llm_client,
+                excluded_questions=excluded,
+            )
+            question_text = generated.get("question", "").strip()
+            if not question_text or question_text in excluded:
+                logger.warning("Question supplémentaire ignorée : doublon ou vide.")
+                continue
+            generated["section"] = section
+            generated["is_new"] = True
+            expanded.append(generated)
+            excluded.append(question_text)
+            added_count += 1
+
+    if not added_count:
+        raise ValueError(
+            "Aucune question supplémentaire n'a pu être générée. "
+            "Le contenu des sections est peut-être insuffisant."
+        )
+    return expanded
 
 
 # Generate QCM

@@ -21,6 +21,12 @@ def render_qcm_html(questions: list[dict]) -> str:
     for i, q in enumerate(questions):
         question_text  = (q.get("question") or "").replace("\n", "<br>")
         options        = q.get("options", [])
+        new_badge = (
+            '<span style="display:inline-block;background:#198754;color:#fff;'
+            'font-size:.72rem;padding:3px 9px;border-radius:12px;'
+            'margin-left:8px;">Questions ajoutées</span>'
+            if q.get("is_new") else ""
+        )
         # Extrait la lettre de la réponse à la question
         correct_value  = (
             q.get("bonne_reponse")
@@ -39,7 +45,7 @@ def render_qcm_html(questions: list[dict]) -> str:
                     box-shadow:0 1px 4px rgba(0,0,0,.06);">
           <p style="font-weight:700;font-size:.9rem;color:#1B57A1;
                     margin:0 0 8px 0;text-transform:uppercase;letter-spacing:.05em;">
-            Question {i + 1}
+            Question {i + 1}{new_badge}
           </p>
           <p style="font-size:1.05rem;color:#111;margin:0 0 16px 0;line-height:1.5;">
             {question_text}
@@ -137,6 +143,20 @@ def render_QCM():
             # Aperçu dynamique du QCM
             qcm_html_out = gr.HTML(value="", elem_id="qcm_preview")
 
+            with gr.Column(elem_id="expand_qcm"):
+                gr.Markdown("### Approfondir le QCM")
+                section_selector = gr.Dropdown(
+                    choices=[],
+                    label="Sections à approfondir (vide = toutes les sections)",
+                    multiselect=True,
+                    interactive=True,
+                )
+                btn_add_questions = gr.Button(
+                    "Ajouter des questions",
+                    variant="secondary",
+                )
+                expansion_status = gr.Markdown()
+
             # Barre de correction
             with gr.Row(elem_id="correction_bar"):
                 correction_input = gr.Textbox(
@@ -170,6 +190,9 @@ def render_QCM():
         btn_submit_correction,
         correction_input,
         correction_status,
+        section_selector,
+        btn_add_questions,
+        expansion_status,
         btn_back_QCM,
         btn_profil_QCM,
     )
