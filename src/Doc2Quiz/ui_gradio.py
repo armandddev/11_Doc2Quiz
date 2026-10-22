@@ -23,7 +23,7 @@ from auth import update_user_profile, delete_user_account
 from db import get_db, init_indexes
 
 from Template.MOCK_Question import get_template_quiz
-
+from ui_export import prepare_export
 css_file = Path(__file__).resolve().parent / "style.css"
 custom_css = css_file.read_text(encoding="utf-8") if css_file.exists() else ""
 
@@ -469,17 +469,24 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[homepage_container, generateQCM_container, loading_section, qcm_section],
     )
 
+    export_io = dict(
+        inputs=[btn_exportPDF, quiz_questions_state, app_state],
+        outputs=[btn_confirm_export],
+    )
+
     btn_export_student.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
         outputs=[revisionEtudiant_container, exportQCM_container]
-    )
+    ).then(fn=prepare_export, **export_io)
 
     btn_export_teacher.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
         outputs=[choiceTeacher_container, exportQCM_container]
-    )
+    ).then(fn=prepare_export, **export_io)
+
+    btn_exportPDF.change(fn=prepare_export, **export_io)
 
     target_profil_view = profil_container
     profil_navigation = [

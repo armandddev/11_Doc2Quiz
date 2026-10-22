@@ -83,9 +83,12 @@ def generate_qcm_question(
         "Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte autour.\n"
         "Format attendu :\n"
         '{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "A"}\n\n'
+        '"feedbacks": ["pourquoi A", "pourquoi B", "pourquoi C", "pourquoi D"]}\n\n'
         "Règles :\n"
         "- La question teste la compréhension, pas la mémorisation mot pour mot\n"
         "- 4 options plausibles, une seule correcte\n"
+        '- "feedbacks" contient 4 phrases courtes, dans le même ordre que les options, '
+        "expliquant pourquoi chaque option est correcte ou incorrecte\n"        
         "- Écris les formules mathématiques en texte simple (ex: 'a puissance 13 modulo n'), pas en LaTeX\n"
         '- "correct" contient uniquement la lettre : A, B, C ou D'
     )
@@ -145,6 +148,7 @@ def generate_qcm_question(
         question_text = parsed.get("question", "").strip()
         options       = parsed.get("options", [])
         correct       = parsed.get("correct", "A").strip().upper()
+        feedbacks    = parsed.get("feedbacks", [])
 
         is_duplicate = any(
             SequenceMatcher(
@@ -163,6 +167,7 @@ def generate_qcm_question(
                 "question": question_text,
                 "options":  options,
                 "correct":  correct,
+                "feedbacks": feedbacks,
                 "type":     "qcm",
             }
 
@@ -172,6 +177,7 @@ def generate_qcm_question(
             "question": question_text,
             "options":  options,
             "correct":  correct,
+            "feedbacks": feedbacks,
             "type":     "qcm",
         }
 

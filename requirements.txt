@@ -8,3 +8,4 @@ python-dotenv
 pydantic-settings
 motor
 pymongo>=4.9
+reportlab
