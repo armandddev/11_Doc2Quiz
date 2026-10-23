@@ -172,12 +172,14 @@ class OllamaWrapper:
         model:   Optional[str]               = None,
         system:  Optional[str]               = None,
         options: Optional[Mapping[str, Any]] = None,
+        format:  Optional[Union[str, Mapping[str, Any]]] = None,
     ) -> OllamaGenerateResult:
         """POST /api/generate — réponse complète (stream=false)."""
         model = model or self.default_model
         body: Dict[str, Any] = {"model": model, "prompt": prompt, "stream": False}
         if system  is not None: body["system"]  = system
         if options is not None: body["options"] = dict(options)
+        if format  is not None: body["format"]  = format
         return self._parse_generate_result(
             self._request("POST", "/api/generate", body=body, _log_prompt=prompt)
         )

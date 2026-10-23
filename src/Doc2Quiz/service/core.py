@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 from difflib import SequenceMatcher
+import html
+import random
+import re
 
 from Doc2Quiz.service.anti_verbatim import is_too_similar
 from Doc2Quiz.config import settings
@@ -8,6 +11,17 @@ from shared.logging import get_logger
 from shared.document import extractFromPdf, extractFromMd
 
 logger = get_logger("core")
+
+QCM_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "question":  {"type": "string"},
+        "options":   {"type": "array", "items": {"type": "string"}, "minItems": 4, "maxItems": 4},
+        "feedbacks": {"type": "array", "items": {"type": "string"}, "minItems": 4, "maxItems": 4},
+        "correct":   {"type": "string", "enum": ["A", "B", "C", "D"]},
+    },
+    "required": ["question", "options", "correct", "feedbacks"],
+}
 
 _LEVEL_LABELS = {
     "BUT":      "BUT (Bac+2/3, approche technologique et professionnelle)",
@@ -21,6 +35,16 @@ _REVISION_LABELS = {
     "Exercices":          "une question d'application pratique (calcul, démarche, cas concret)",
     "Les deux":           "une question de cours OU d'application pratique",
 }
+
+# Différentes facon de générer un question 
+_ANGLES = [
+    "une définition précise d'un terme ou d'un concept du texte",
+    "un exemple de code ou d'application tiré du texte (pas d'un autre domaine)",
+    "une erreur courante ou un piège lié à ce sujet",
+    "une comparaison entre deux notions présentes dans le texte",
+    "le résultat ou la conséquence d'une instruction ou d'un mécanisme du texte",
+    "la syntaxe ou la raison d'être d'un élément du texte",
+]
 
 
 # Extraction
@@ -82,24 +106,34 @@ def generate_qcm_question(
     JSON_FORMAT = (
         "Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte autour.\n"
         "Format attendu :\n"
-        '{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "A"}\n\n'
-        '"feedbacks": ["pourquoi A", "pourquoi B", "pourquoi C", "pourquoi D"]}\n\n'
+        '{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], '
+        '"feedbacks": ["pourquoi A", "pourquoi B", "pourquoi C", "pourquoi D"], '
+        '"correct": "A"}\n\n'
         "Règles :\n"
         "- La question teste la compréhension, pas la mémorisation mot pour mot\n"
-        "- 4 options plausibles, une seule correcte\n"
+        "- La question porte UNIQUEMENT sur le sujet du texte source : "
+        "aucun exemple d'un autre domaine (commerce, vie courante, etc.)\n"
+        "- 4 options plausibles ET toutes différentes, une seule correcte\n"
         '- "feedbacks" contient 4 phrases courtes, dans le même ordre que les options, '
-        "expliquant pourquoi chaque option est correcte ou incorrecte\n"        
+        "expliquant pourquoi chaque option est correcte ou incorrecte\n"
         "- Écris les formules mathématiques en texte simple (ex: 'a puissance 13 modulo n'), pas en LaTeX\n"
-        '- "correct" contient uniquement la lettre : A, B, C ou D'
+        '- "correct" contient uniquement la lettre : A, B, C ou D, et doit correspondre '
+        "à l'option que tes feedbacks présentent comme correcte"
     )
 
     exclusion_prompt = ""
+    angle_prompt = ""
     if excluded_questions:
         exclusion_prompt = (
-            "\nQuestions déjà présentes dans le QCM. La nouvelle question doit "
-            "évaluer un aspect différent et ne pas reprendre leur formulation :\n"
+            "\nQuestions DÉJÀ présentes dans le QCM (interdit de les reprendre, "
+            "même reformulées) :\n"
             + "\n".join(f"- {question}" for question in excluded_questions)
             + "\n"
+        )
+        angle = _ANGLES[len(excluded_questions) % len(_ANGLES)]
+        angle_prompt = (
+            f"\nLa nouvelle question doit porter sur : {angle}. "
+            "Elle doit traiter une notion différente des questions ci-dessus.\n"
         )
 
     prompt_initial = (
@@ -107,25 +141,56 @@ def generate_qcm_question(
         f"adaptée au {level_label}.\n\n"
         f"Texte source :\n{source_text}\n\n"
         f"{exclusion_prompt}"
+        f"{angle_prompt}"
         f"{JSON_FORMAT}"
     )
 
-    prompt_rephrase = (
+    prompt_verbatim = (
         "Ta question précédente était trop proche mot pour mot du texte source. "
         "Reformule-la avec une structure et des mots complètement différents.\n\n"
         f"Texte source :\n{source_text}\n\n"
         f"{exclusion_prompt}"
+        f"{angle_prompt}"
+        f"{JSON_FORMAT}"
+    )
+    # Prompt dans le cas ou la question généré est similaire à la précédente 
+    prompt_duplicate = (
+        "Ta question précédente était un DOUBLON d'une question déjà présente. "
+        "Change complètement de sujet : choisis une autre notion du texte, "
+        "avec une autre réponse correcte.\n\n"
+        f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
+        f"{angle_prompt}"
         f"{JSON_FORMAT}"
     )
 
     last_result: dict | None = None
+    last_reason = ""
 
     for attempt in range(settings.anti_verbatim_max_retries + 1):
-        prompt = prompt_initial if attempt == 0 else prompt_rephrase
+        if attempt == 0:
+            prompt = prompt_initial
+        elif last_reason == "déjà présente":
+            prompt = prompt_duplicate
+        else:
+            prompt = prompt_verbatim
+
+        # Impact sur la formulation 
+        temperature = 0.7 if (excluded_questions or attempt > 0) else 0.3
 
         # Appel LLM
         try:
-            res = llm_client.generate_text(prompt)
+            res = llm_client.generate_text(
+                prompt,
+                format=QCM_SCHEMA,
+                options={
+                    "temperature": temperature,
+                    # nbre de token max
+                    "num_predict": 1024,
+                    # Permet de varier les réponses en cas de prompt similaire
+                    "seed": random.randint(1, 2**31 - 1),
+                },
+            )
             raw = res.response if hasattr(res, "response") else str(res)
         except Exception as exc:
             logger.error("Erreur appel LLM (tentative %d) : %s", attempt + 1, exc)
@@ -137,18 +202,21 @@ def generate_qcm_question(
             logger.warning(
                 "Réponse LLM non-JSON (tentative %d) : %r", attempt + 1, raw[:120]
             )
-            last_result = {
-                "question": raw.strip(),
-                "options":  [],
-                "correct":  "",
-                "type":     "qcm",
-            }
             continue
 
-        question_text = parsed.get("question", "").strip()
-        options       = parsed.get("options", [])
-        correct       = parsed.get("correct", "A").strip().upper()
-        feedbacks    = parsed.get("feedbacks", [])
+        question_text = html.unescape(str(parsed.get("question", ""))).strip()
+        options       = [html.unescape(str(o)) for o in parsed.get("options", [])]
+        correct       = str(parsed.get("correct", "")).strip().upper()
+        feedbacks     = [html.unescape(str(f)) for f in parsed.get("feedbacks", [])]
+
+        # Permet de nettoyer la réponse 
+        if not question_text or len(options) != 4 or correct not in ("A", "B", "C", "D"):
+            bodies = {re.sub(r"^[A-D][\.\)]\s*", "", o).strip().casefold() for o in options}
+            if len(bodies) != 4:
+                logger.warning("Options en double (tentative %d)", attempt + 1)
+                continue
+            logger.warning("JSON incomplet (tentative %d)", attempt + 1)
+            continue
 
         is_duplicate = any(
             SequenceMatcher(
@@ -164,21 +232,21 @@ def generate_qcm_question(
         if not is_too_similar(question_text, source_text) and not is_duplicate:
             logger.info("Question acceptée (tentative %d)", attempt + 1)
             return {
-                "question": question_text,
-                "options":  options,
-                "correct":  correct,
+                "question":  question_text,
+                "options":   options,
+                "correct":   correct,
                 "feedbacks": feedbacks,
-                "type":     "qcm",
+                "type":      "qcm",
             }
 
-        reason = "déjà présente" if is_duplicate else "trop similaire au source"
-        logger.warning("Tentative %d rejetée — question %s", attempt + 1, reason)
+        last_reason = "déjà présente" if is_duplicate else "trop similaire au source"
+        logger.warning("Tentative %d rejetée — question %s", attempt + 1, last_reason)
         last_result = {
-            "question": question_text,
-            "options":  options,
-            "correct":  correct,
+            "question":  question_text,
+            "options":   options,
+            "correct":   correct,
             "feedbacks": feedbacks,
-            "type":     "qcm",
+            "type":      "qcm",
         }
 
     logger.error(
@@ -234,6 +302,18 @@ def expand_qcm(
         if not str(source_text).strip():
             logger.warning("Section %s ignorée : contenu insuffisant.", key)
             continue
+        
+        # Récupère les questions déjà présentes dans cette section pour éviter les doublons
+        section_excluded = [
+            str(q.get("question", ""))
+            for q in expanded
+            if q.get("question")
+            and str(
+                (q.get("section") or {}).get("id")
+                or (q.get("section") or {}).get("title")
+                or ""
+            ) == key
+        ]
 
         for _ in range(questions_per_section):
             generated = generate_qcm_question(
@@ -241,7 +321,7 @@ def expand_qcm(
                 level,
                 revision,
                 llm_client,
-                excluded_questions=excluded,
+                excluded_questions=section_excluded,   
             )
             question_text = generated.get("question", "").strip()
             if not question_text or question_text in excluded:
@@ -251,6 +331,7 @@ def expand_qcm(
             generated["is_new"] = True
             expanded.append(generated)
             excluded.append(question_text)
+            section_excluded.append(question_text)   
             added_count += 1
 
     if not added_count:
