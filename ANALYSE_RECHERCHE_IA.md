@@ -256,3 +256,29 @@ Extra data
 ```
 
 Nous avons donc mit en place un contrôle des réponses doivent avant d'être utilisées par l'application.
+
+## Proposition d'évolution des appels IA
+
+Actuellement, les appels à Ollama sont faits un par un : une section est traitée, puis la suivante. Le temps total est donc la somme de tous les appels :
+
+```text
+appel 1 + appel 2 + appel 3 + appel 4 = temps total
+```
+
+Une piste d'amélioration est de lancer plusieurs appels en même temps (parallélisation). Les sections étant indépendantes, le temps total serait alors proche de celui de l'appel le plus long :
+
+```text
+max(appel 1, appel 2, appel 3, appel 4) = temps total
+```
+
+La parallélisation ne s'applique qu'entre des sections différentes : au sein d'une même section, les questions restent générées l'une après l'autre, car chaque nouvelle question doit connaître les précédentes pour éviter les doublons.
+
+Une autre piste est de demander 2 à 3 questions en un seul appel, afin de ne traiter le texte source qu'une fois et de laisser le modèle éviter lui-même les doublons. Elle est à tester, car les petits modèles perdent en qualité lorsqu'on leur demande trop de contenu d'un coup.
+
+## Texte anglais
+
+Lorsqu'un document en anglais est fourni, les questions et les réponses sont générées en français, mais elles portent bien sur le contenu du document anglais. Ce comportement vient du fait que les consignes envoyées au modèle (le prompt) sont rédigées en français : le modèle répond dans la langue de la consigne, et non dans celle du texte source.
+
+Ce comportement peut être voulu (un enseignant francophone qui souhaite un QCM en français à partir d'un cours en anglais), mais il peut aussi être indésirable, par exemple pour un cours dispensé en anglais où le QCM devrait l'être aussi.
+
+Une piste d'évolution est de rendre la langue de sortie configurable : une option dans l'interface (« Langue du QCM : français / anglais / même langue que le document ») qui ajoute au prompt une consigne explicite, par exemple « Rédige la question, les options et les feedbacks en anglais ».
