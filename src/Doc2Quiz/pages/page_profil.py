@@ -67,6 +67,7 @@ def render_profil():
                         </div>
                         """
           )
+ 
           btn_delete_history = gr.Button(
               "Supprimer", elem_id="btn_delete_history", variant="secondary"
           )

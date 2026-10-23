@@ -51,7 +51,7 @@ def render_exportQCM():
             
         # Bouton d'action Exporter
         with gr.Row(elem_id="export_action_row"):
-            btn_confirm_export = gr.Button(
+            btn_confirm_export = gr.DownloadButton(
                 "EXPORTER",
                 elem_id="btn_confirm_export"
             )
