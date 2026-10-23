@@ -273,28 +273,28 @@ En tant qu'équipe, je veux **déterminer la taille maximale de document qui pro
 
 ---
 
-## US-36 : Test de segmentation avec VLM ou LLM alternatif (5 pts)
+## US-36 : Enrichissement des chunks textuels avec la description des images via VLM (5 pts)
 
-En tant qu'équipe, je veux **tester des approches alternatives de segmentation** (VLM pour les documents avec représentations visuelles, ou LLM de taille différente) afin d'identifier la meilleure combinaison qualité/vitesse.
+**En tant qu'équipe**, je veux utiliser un VLM pour analyser les images ou photos rencontrées lors de l'extraction des documents, afin d'injecter leur description textuelle directement dans le chunk avant qu'il ne soit finalisé.
 
-**CA :**
+**CA (Critères d'Acceptation) :**
 
-- Au moins deux approches alternatives sont testées et comparées au pipeline de segmentation actuel.
-- Les solutions combinées sont explorées : ex. VLM pour extraire les schémas/tableaux + LLM texte pour le contenu narratif.
-- Chaque approche est évaluée sur les mêmes documents de référence que US-26.
-- Un rapport comparatif documente les avantages et limites de chaque approche.
+- Lorsqu'une image est détectée dans un document lors de l'extraction, le processus intercepte le contenu avant de clore le chunk en cours.
+- L'image est envoyée à un VLM (ex. via Ollama avec `llava` ou `minicpm-v`) pour obtenir une description textuelle fidèle et contextuelle.
+- La description générée par le VLM est automatiquement implémentée/intégrée au sein du chunk textuel.
+- Le format et la structure des chunks finaux restent cohérents et exploitables pour la suite du pipeline (ex. génération de quiz).
 
 **Sous-tâches techniques :**
 
-1. Identifier les modèles candidats disponibles via Ollama : VLM (ex. `llava`, `minicpm-v`) pour les documents avec images/schémas, LLM léger alternatif (ex. `phi3`, `llama3.2:1b`) pour la vitesse.
-2. Implémenter un wrapper de segmentation alternatif pour chaque modèle testé, en réutilisant l'interface existante (`segment_text`).
-3. Définir une grille de comparaison : qualité du découpage, détection des schémas/formules, temps de traitement, taux d'erreur JSON.
-4. Tester la solution combinée VLM + LLM sur au moins 2 documents contenant des représentations visuelles (schémas, graphiques, formules).
-5. Rapport comparatif : tableau des résultats par approche + recommandation sur l'approche à adopter ou à combiner avec le pipeline actuel.
+1. **Détection et extraction des images :** Mettre en place la logique dans le parseur pour repérer la présence d'une image au milieu ou à la fin d'un bloc de texte.
+2. **Appel au VLM :** Implémenter la fonction d'interrogation du VLM (via l'API Ollama ou un wrapper dédié) pour traduire l'image en texte descriptif.
+3. **Fusion dans le chunk :** Modifier la logique de création des chunks pour y inclure la description textuelle de l'image avant la finalisation du chunk.
+4. **Tests d'intégration :** Valider le comportement sur des documents contenant un mélange de texte et de photos/schémas.
 
-**Cas à tester :** document avec schémas et texte (VLM vs LLM texte seul), document purement textuel (LLM léger vs modèle actuel), document avec formules LaTeX.
-
-**Definition of Done :** rapport comparatif produit sur au moins 3 approches, recommandation argumentée incluse.
+**Definition of Done :** 
+- Le pipeline intègre l'appel au VLM lors de la présence d'une image dans l'extraction.
+- La description de l'image fait partie intégrante du chunk final.
+- Un test validant l'intégration sur au moins un document contenant une image a été effectué.
 
 ---
 

@@ -20,7 +20,9 @@ Document PDF ou Markdown
         ↓
 Extraction du texte
         ↓
-Segmentation en sections
+Découpage en chunks
+        ↓
+Segmentation en sections des chunks
         ↓
 Génération des questions avec Ollama
         ↓
@@ -78,7 +80,7 @@ Création des sections
 Génération des questions
 ```
 
-Ici on utilise des blocs de 6000 caractères avec un chevauchement de 200 caractères :
+Ici on utilise des blocs de 3000 caractères avec un chevauchement de 100 caractères :
 
 ## Méthode de segmentation réellement utilisée
 
@@ -100,7 +102,7 @@ Création des sections à partir du JSON retourné
 
 ## Comparaison avec une segmentation algorithmique
 
-Une segmentation algorithmique par titres ou paragraphes a été étudiée comme piste de comparaison, mais elle n'est pas utilisée actuellement dans le parcours d'extraction. Cette solution détecte moins de section que le LLM.
+Une segmentation algorithmique par titres ou paragraphes a été étudiée comme piste de comparaison, mais elle n'est pas utilisée actuellement dans le parcours d'extraction. Cette solution détecte moins de section ou 0 sections parfois que le LLM voir pour certaine fichiers. La segmentation par algorithme permet également que les sections choisis soient pertinentes pour être utilisés pour générer des questions de qcm.
 
 
 ### Segmentation par LLM utilisée
@@ -146,7 +148,7 @@ MongoDB est une solution envisagée, car son modèle documentaire permettrait de
 
 ## Taille des documents et temps de traitement
 
-La taille du document influence directement la durée du traitement. Un document d'une vingtaine de pages contient généralement plus de texte qu'un document de cinq pages. Il est donc découpé en davantage de blocs de 6000 caractères, ce qui entraîne davantage d'appels à Ollama pour la segmentation.
+La taille du document influence directement la durée du traitement. Un document d'une vingtaine de pages contient généralement plus de texte qu'un document de cinq pages. Il est donc découpé en davantage de blocs de 3000 caractères, ce qui entraîne davantage d'appels à Ollama pour la segmentation.
 
 Après la segmentation, chaque section peut également entraîner :
 
@@ -158,12 +160,7 @@ Il existe actuellement une limite sur le nombre de questions générées (`qcm_m
 
 Elle limite donc le nombre de questions finales, mais elle n'empêche pas la segmentation d'avoir déjà traité l'ensemble du document. Elle ne constitue pas une limite de taille du document et ne suffit pas à empêcher un appel de segmentation très long.
 
-Une limite de pages, de caractères ou de blocs pourrait être ajoutée pour éviter qu'un document trop volumineux entraîne un temps d'attente excessif. Cette limite n'est pas encore mise en place dans le code actuel c'est un point à étudier et à définir selon le compromis recherché entre :
-
-- traiter des documents complets ;
-- limiter le temps d'attente ;
-- réduire le nombre d'appels à Ollama ;
-- éviter de consommer trop de ressources sur le serveur.
+Au final, la taille du document impacte le temps de traitement mais pas la qualité du QCM car chaque bloc de 3000 caractères est analysé et segmenté séparément. 
 
 ## Tests avec les mathématiques
 
@@ -192,6 +189,8 @@ Les difficultés observées concernent notamment :
 - l'affichage dans l'interface ;
 - l'enregistrement des formules ;
 - la différence entre une formule LaTeX et du texte simple.
+
+On utile donc mathjax qui transforme le LaTex en texte simple, ce qui permet de traduire les expressions mathématiques en LaTeX renvoyés par le llm.
 
 ## Difficultés liées aux schémas mathématiques
 
@@ -257,5 +256,3 @@ Extra data
 ```
 
 Nous avons donc mit en place un contrôle des réponses doivent avant d'être utilisées par l'application.
-
-## Antiverbatism ???
