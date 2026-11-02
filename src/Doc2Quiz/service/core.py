@@ -21,6 +21,7 @@ QCM_SCHEMA = {
         "correct":   {"type": "string", "enum": ["A", "B", "C", "D"]},
     },
     "required": ["question", "options", "correct", "feedbacks"],
+    "additionalProperties": False,
 }
 
 _LEVEL_LABELS = {
@@ -62,6 +63,9 @@ def process_uploaded_md(file_input, revision: str = "Les deux") -> dict:
 # Parsing JSON robuste
 
 def _parse_llm_json(raw: str) -> dict | None:
+    if not isinstance(raw, str):
+        return None
+
     text = raw.strip()
 
     # Retire les balises markdown si présentes
@@ -75,16 +79,57 @@ def _parse_llm_json(raw: str) -> dict | None:
     except json.JSONDecodeError:
         pass
 
-    # Extrait le premier objet JSON dans la chaîne
-    start = text.find("{")
-    end   = text.rfind("}") + 1
-    if start != -1 and end > start:
+    # Certains modèles ajoutent une phrase avant/après le JSON. 
+    decoder = json.JSONDecoder()
+    for start, character in enumerate(text):
+        if character != "{":
+            continue
         try:
-            return json.loads(text[start:end])
+            parsed, _ = decoder.raw_decode(text[start:])
         except json.JSONDecodeError:
-            pass
+            continue
+        if isinstance(parsed, dict):
+            return parsed
 
     return None
+
+
+def _contains_generation_artifacts(value: str) -> bool:
+    """Détecte les marqueurs de réflexion et les boucles de tokens du modèle."""
+    lowered = value.casefold()
+    if re.search(r"<\s*/?\s*think\s*>|<\|?\s*thought\s*\|?>|\|\s*thought", lowered):
+        return True
+
+    tokens = re.findall(r"[^\W_]+(?:[-'][^\W_]+)*", lowered, flags=re.UNICODE)
+    run_length = 1
+    for previous, current in zip(tokens, tokens[1:]):
+        if current == previous:
+            run_length += 1
+            if run_length >= 4:
+                return True
+        else:
+            run_length = 1
+    return False
+
+
+def _is_valid_qcm_payload(
+    question: str,
+    options: list[str],
+    feedbacks: list[str],
+) -> bool:
+    if not question or len(options) != 4 or len(feedbacks) != 4:
+        return False
+    if any(
+        not value.strip()
+        or value.strip() == "..."
+        or re.fullmatch(r"[A-D][.)]?\s*\.\.\.", value.strip(), flags=re.IGNORECASE)
+        for value in [question, *options, *feedbacks]
+    ):
+        return False
+    return not any(
+        _contains_generation_artifacts(value)
+        for value in [question, *options, *feedbacks]
+    )
 
 
 # Generate question
@@ -105,6 +150,7 @@ def generate_qcm_question(
 
     JSON_FORMAT = (
         "Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte autour.\n"
+        "N'ajoute jamais de commentaire, de raisonnement ou de balise <think>.\n"
         "Format attendu :\n"
         '{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], '
         '"feedbacks": ["pourquoi A", "pourquoi B", "pourquoi C", "pourquoi D"], '
@@ -176,18 +222,20 @@ def generate_qcm_question(
             prompt = prompt_verbatim
 
         # Impact sur la formulation 
-        temperature = 0.7 if (excluded_questions or attempt > 0) else 0.3
+        # Une température élevée fait boucler certains modèles Gemma lors d'une sortie Json (mots répétés chaînes non terminées)
+        temperature = 0.15 if (excluded_questions or attempt > 0) else 0.1
+        output_format = QCM_SCHEMA if attempt < 2 else "json"
 
         # Appel LLM
         try:
             res = llm_client.generate_text(
                 prompt,
-                format=QCM_SCHEMA,
+                format=output_format,
                 options={
                     "temperature": temperature,
-                    # nbre de token max
-                    "num_predict": 1024,
-                    # Permet de varier les réponses en cas de prompt similaire
+                    "num_predict": 768,
+                    "repeat_penalty": 1.1,
+                    "repeat_last_n": 128,
                     "seed": random.randint(1, 2**31 - 1),
                 },
             )
@@ -210,12 +258,15 @@ def generate_qcm_question(
         feedbacks     = [html.unescape(str(f)) for f in parsed.get("feedbacks", [])]
 
         # Permet de nettoyer la réponse 
-        if not question_text or len(options) != 4 or correct not in ("A", "B", "C", "D"):
+        if (
+            not _is_valid_qcm_payload(question_text, options, feedbacks)
+            or correct not in ("A", "B", "C", "D")
+        ):
             bodies = {re.sub(r"^[A-D][\.\)]\s*", "", o).strip().casefold() for o in options}
             if len(bodies) != 4:
                 logger.warning("Options en double (tentative %d)", attempt + 1)
                 continue
-            logger.warning("JSON incomplet (tentative %d)", attempt + 1)
+            logger.warning("JSON invalide ou sortie répétitive (tentative %d)", attempt + 1)
             continue
 
         is_duplicate = any(
