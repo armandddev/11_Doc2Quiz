@@ -180,6 +180,8 @@ class OllamaWrapper:
         if system  is not None: body["system"]  = system
         if options is not None: body["options"] = dict(options)
         if format  is not None: body["format"]  = format
+        
+        if format is not None: body["think"] = False
         return self._parse_generate_result(
             self._request("POST", "/api/generate", body=body, _log_prompt=prompt)
         )
