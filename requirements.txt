@@ -9,3 +9,4 @@ pydantic-settings
 motor
 pymongo>=4.9
 reportlab
+requests>=2.31.0
