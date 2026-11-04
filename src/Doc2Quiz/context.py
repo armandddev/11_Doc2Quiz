@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
+
 class Role(str, Enum):
     TEACHER = "teacher"
     STUDENT = "student"
@@ -18,6 +19,7 @@ class UserContext:
 class AppContext:
     user: UserContext | None = None
     document_id: int | None = None
+    generation_id: str | None = None
     sections: list = field(default_factory=list)
     pending_file: object = None
     pending_revision: str = "Les deux"
@@ -37,6 +39,7 @@ class AppContext:
 
     def reset_document(self):
         self.document_id = None
+        self.generation_id = None
         self.sections = []
 
     def logout(self):
