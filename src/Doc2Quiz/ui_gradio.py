@@ -12,7 +12,7 @@ from pages.page_homePage import render_homePage
 from pages.page_choiceStudent import render_choiceEtudiant
 from pages.page_QCM import render_QCM, render_qcm_html
 from pages.page_choiceTeacher import render_choiceTeacher
-from shared.qcm import enregistrer_modifications
+from shared.qcm import enregistrer_modification, enregistrer_modifications
 from service.core import expand_qcm
 from Doc2Quiz.ollama_client import OllamaWrapper
 from pages.page_exportQCM import render_exportQCM
@@ -556,30 +556,32 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         ],
     )
 
-    def appliquer_corrections_qcm(questions, erreurs):
-        print(
-            f"[CORRECTION QCM] callback reçu : "
-            f"{len(questions or [])} question(s), erreurs={erreurs!r}",
-            flush=True,
-        )
-        updated_questions, _, _, _, message = enregistrer_modifications(
+    # Appliquer une correction sur une question 
+    def appliquer_correction_question(questions, question_index, erreur):
+        if not questions:
+            return "", questions, "", "Aucune question disponible."
+        if not erreur or not erreur.strip():
+            return "", questions, "", "Veuillez préciser une modification."
+
+        updated_questions, _, _, _, message = enregistrer_modification(
             questions,
-            erreurs,
-        )
-        print(
-            f"[CORRECTION QCM] callback terminé : message={message!r}",
-            flush=True,
+            question_index,
+            erreur,
         )
         return (
-            gr.update(value=render_qcm_html(updated_questions)),
+            gr.update(value=render_qcm_html(
+                updated_questions,
+                current_index=question_index,
+                total_questions=len(updated_questions),
+            )),
             updated_questions,
             "",
             message,
         )
 
     btn_submit_correction.click(
-        fn=appliquer_corrections_qcm,
-        inputs=[quiz_questions_state, correction_input],
+        fn=appliquer_correction_question,
+        inputs=[quiz_questions_state, current_index, correction_input],
         outputs=[
             qcm_html_out,
             quiz_questions_state,
@@ -1030,5 +1032,11 @@ if __name__ == "__main__":
         server_port=7860,
         theme=global_theme,
         css=custom_css,
+        head="""
+            <script>
+              MathJax = { tex: { inlineMath: [["$","$"],["\\\\(","\\\\)"]] } };
+            </script>
+            <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+        """,
         share=False,
     )
