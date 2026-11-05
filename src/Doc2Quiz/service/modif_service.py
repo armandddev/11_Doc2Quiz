@@ -95,7 +95,7 @@ Options actuelles : {question.get('options', [])}
 Réponse actuelle : {question.get('bonne_reponse', '')}
 Erreur signalée par l'enseignant : {erreur}
 """
-    response = llm_client.generate_text(prompt).response
+    response = llm_client.generate_text(prompt, format="json").response
     correction = _parse_correction_response(response)
 
     if not isinstance(correction.get("question"), str):

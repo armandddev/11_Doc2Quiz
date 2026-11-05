@@ -1,6 +1,5 @@
 from pathlib import Path
 import gradio as gr
-from service.modif_service import corriger_question, modifier_question
 
 # Mémoire globale des questions pour la session courante
 _CURRENT_QUESTIONS = []
@@ -36,14 +35,7 @@ def render_qcm_html(data=None, current_index: int = 0, total_questions: int = No
         questions_to_render = [(0, active_data)]
         total = 1
 
-    mathjax = '''
-    <script>
-      MathJax = { tex: { inlineMath: [["$","$"],["\\\\(","\\\\)"]] } };
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
-    '''
-
-    parts = [mathjax, '<div style="max-width:820px;margin:0 auto;padding:10px 10px;">']
+    parts = ['<div style="max-width:820px;margin:0 auto;padding:10px 10px;">']
 
     for idx, q in questions_to_render:
         question_text = (q.get("question") or "").replace("\n", "<br>")
@@ -254,35 +246,6 @@ def render_QCM():
             fn=lambda idx: navigate(1, idx),
             inputs=[current_index],
             outputs=[current_index, qcm_html_out, btn_next_qcm, btn_validate_all]
-        )
-
-        # Correction IA ponctuelle sur la question affichée (Étape 2)
-        def apply_correction(idx, user_input):
-            global _CURRENT_QUESTIONS
-            if not _CURRENT_QUESTIONS or idx < 0 or idx >= len(_CURRENT_QUESTIONS):
-                return "", "⚠️ Aucune question active."
-            if not user_input or not user_input.strip():
-                return "", "⚠️ Veuillez préciser une modification."
-            try:
-                # Simulation / intégration du service de correction
-                q = _CURRENT_QUESTIONS[idx]
-                modifs = modifier_question(
-                    _CURRENT_QUESTIONS,
-                    idx,
-                    question=f"{q['question']} (revue)",
-                    options=q["options"],
-                    bonne_reponse=q.get("bonne_reponse", q["options"][0])
-                )
-                _CURRENT_QUESTIONS = modifs
-                html = render_qcm_html(_CURRENT_QUESTIONS, current_index=idx, total_questions=len(_CURRENT_QUESTIONS))
-                return html, "", "✅ Question modifiée avec succès !"
-            except Exception as e:
-                return render_qcm_html(_CURRENT_QUESTIONS, current_index=idx), user_input, f"❌ Erreur : {e}"
-
-        btn_submit_correction.click(
-            fn=apply_correction,
-            inputs=[current_index, correction_input],
-            outputs=[qcm_html_out, correction_input, correction_status]
         )
 
         # Étape 3 : Transition vers la vue récapitulative complète

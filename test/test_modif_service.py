@@ -66,7 +66,7 @@ def test_modifier_question_accepte_une_lettre_comme_reponse():
 
 def test_corriger_question_ignore_le_texte_apres_le_json():
     class FauxClient:
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             return SimpleNamespace(
                 response=(
                     '{"question":"Corrigée","options":["A","B"],'
@@ -97,7 +97,7 @@ def test_apercu_utilise_la_reponse_corrigee():
 
 def test_corriger_question_utilise_l_erreur_signalee():
     class FauxClient:
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             assert "la réponse correcte est B" in prompt
             return SimpleNamespace(
                 response='{"question": "Question corrigée", "options": ["A", "B"], "bonne_reponse": "B"}'
@@ -118,7 +118,7 @@ def test_enregistrer_modifications_associe_les_lignes_aux_questions():
         def __init__(self):
             self.prompts = []
 
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             self.prompts.append(prompt)
             question_number = len(self.prompts)
             return SimpleNamespace(
@@ -156,7 +156,7 @@ def test_enregistrer_modifications_associe_les_lignes_aux_questions():
 
 def test_enregistrer_modifications_utilise_le_numero_de_question():
     class FauxClient:
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             question_number = "8" if "question 8" in prompt.lower() else "9"
             return SimpleNamespace(
                 response=(
@@ -183,7 +183,7 @@ def test_enregistrer_modifications_utilise_le_numero_de_question():
 
 def test_enregistrer_modifications_traite_deux_questions_sur_une_ligne():
     class FauxClient:
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             number = "8" if "question 8" in prompt.lower() else "9"
             return SimpleNamespace(
                 response=(
@@ -208,7 +208,7 @@ def test_enregistrer_modifications_traite_deux_questions_sur_une_ligne():
 
 def test_enregistrer_modifications_respecte_la_reponse_explicite():
     class FauxClient:
-        def generate_text(self, prompt):
+        def generate_text(self, prompt, **kwargs):
             return SimpleNamespace(
                 response=(
                     '{"question": "Question corrigée", '
