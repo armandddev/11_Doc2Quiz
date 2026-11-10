@@ -5,7 +5,7 @@ import pymupdf
 import mistune
 
 from .segmentation import segment_text
-from .detection import detection_section_displine
+from .detection import detection_section_heuristic
 from .models import Section
 from Doc2Quiz.ollama_client import OllamaWrapper
 from Doc2Quiz.service.vlm_service import VLMService
@@ -238,13 +238,23 @@ def extractTitles(doc) -> list:
             titles.append({"level": level, "text": text, "page": page_num})
     return titles
 
+def _to_section(raw: dict) -> Section:
+    return Section(
+        id=str(raw.get("id") or raw.get("title") or ""),
+        title=raw.get("title", ""),
+        level=raw.get("level"),
+        text=raw.get("text", ""),
+        summary=raw.get("summary", ""),
+        notion_ids=raw.get("notion_ids"),
+        pages=raw.get("pages", []),
+    )
+
 
 def _detect_sections(sections: list) -> list:
-    """Détecte la discipline et le content_type pour chaque section."""
     detected_sections = []
     for section in sections:
         try:
-            detected = detection_section_displine(Section(**section))
+            detected = detection_section_heuristic(_to_section(section))
             detected_sections.append(detected.to_dict())
         except Exception:
             detected_sections.append(section)

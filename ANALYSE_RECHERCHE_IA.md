@@ -282,3 +282,69 @@ Lorsqu'un document en anglais est fourni, les questions et les réponses sont g�
 Ce comportement peut être voulu (un enseignant francophone qui souhaite un QCM en français à partir d'un cours en anglais), mais il peut aussi être indésirable, par exemple pour un cours dispensé en anglais où le QCM devrait l'être aussi.
 
 Une piste d'évolution est de rendre la langue de sortie configurable : une option dans l'interface (« Langue du QCM : français / anglais / même langue que le document ») qui ajoute au prompt une consigne explicite, par exemple « Rédige la question, les options et les feedbacks en anglais ».
+
+## Etudes des sorties llm
+
+### 1. Cartographie
+
+| Sortie | Produite par | Appels LLM réels aujourd’hui | Consommée par | Constat |
+|---|---|---|---|---|
+| **Titre de section** | `segmentation.py` (`_segment_with_llm`, `_parse_titles`) | 1 par chunk de 3000 car. (1 à 3 essais) | `core.py` (clé de section, l.278 et l.313), `ui_gradio.py` l.86-89 (liste des sections) | Utilisé et indispensable à l’UI. Les titres du document sont déjà extraits sans LLM (`extractTitles`, `extractTitlesFromTree`). |
+| **Content-type** | `detection.py` via `_detect_sections` | **0** (bug `TypeError`) | `calculation.py` l.198, hors flux principal (CLI et tests) | Jamais renseigné. Heuristique `contains_calculation` déjà disponible. |
+| **Matière** | `detection.py` (même appel) | **0** (même bug) | `calculation.py` l.76 (prompt) avec repli `"scientifique"` l.207. `display_final_result` sans appelant. | Jamais renseignée, aucun effet sur les questions du QCM. |
+| **Résumé** | `summary.py` (`summarize_text`) | **0** (aucun appelant) | Personne (un test le patche encore) | Code mort, retiré de `segmentation.py` à une date à vérifier dans l’historique git. |
+
+
+### 2. Évaluation de chaque sortie
+
+Grille : (Q1) utilisée en aval ? (Q2) améliore la qualité de la génération ?
+(Q3) remplaçable par du calcul algorithmique ?
+
+| Sortie | Q1 Utilisée en aval ? | Q2 Améliore la génération ? | Q3 Remplaçable ? | Statut |
+|---|---|---|---|---|
+| Titre de section | Oui : clé de section (core.py l.278, l.313) et liste déroulante de l'UI (ui_gradio.py l.86-89) | Non : le titre n'est pas injecté dans le prompt de génération (generate_qcm_question ne reçoit que le texte de la section) | Oui, en grande partie : les titres sont déjà extraits sans LLM (extractTitles par taille de police, extractTitlesFromTree pour le Markdown) | **Remplaçable** |
+| Content-type | Quasi non : lu uniquement par calculation.py, appelé hors flux principal (CLI et tests) | Non : absent du prompt de génération | Oui : contains_calculation(text) existe déjà et fonctionne sans LLM | **Remplaçable** (et aujourd'hui jamais produit, voir bug) |
+| Matière (discipline) | Quasi non : prompt de calculation.py (hors flux principal) ; display_final_result sans appelant | Non : absente du prompt de génération | Partiellement : un seul appel par document, ou saisie utilisateur | **Évitable** (au minimum, un appel par document au lieu d'un par section) |
+| Résumé de section | Non : summarize_text n'a aucun appelant | Non : le Cas A (génération sans résumé) correspond déjà à l'état actuel | Sans objet | **Évitable** (code mort) |
+
+#### Constat transversal
+La détection content-type/matière ne s'exécute jamais : Section(**section) lève
+un TypeError (champs obligatoires id, level, summary, notion_ids, pages absents
+des dicts produits par segment_text), avalé par le except de _detect_sections.
+Les sorties content-type et matière n'existent donc pas dans les données
+actuelles, ce qui confirme qu'elles ne sont pas nécessaires à la génération.
+
+
+### 3. Mesures de référence (baseline)
+Mesures obtenues avec `test/test_sorties_llm.py` (faux client LLM, nombre d'appels exact).
+
+| Sortie | Appels LLM mesurés | Remarque |
+|---|---|---|
+| Titres (segmentation) | 3 appels pour 3 chunks | 1 appel par chunk de 3000 caractères (texte de test d'environ 6800 caractères) |
+| Content-type / matière | 0 appel pour 4 sections | Détection cassée (TypeError avalé) |
+| Résumé | 0 appelant | Code mort |
+| Génération | 1 appel pour 1 question (hors retries) | Aucun résumé dans le prompt |
+
+### 4. Remplacement de la détection par une heuristique
+
+| Variante | Appels LLM de détection pour 4 sections |
+|---|---|
+| Actuelle (bug : TypeError avalé) | 0, mais content_type jamais renseigné |
+| Bug corrigé, détection par LLM | 4 (1 par section) |
+| Bug corrigé, heuristique contains_calculation | 0 |
+
+Gain : −1 appel LLM par section par rapport à la détection LLM (CA 3).
+Mesures obtenues avec `test/test_sorties_llm.py` (7 tests, faux client LLM).
+
+#### Cas B : concordance heuristique vs vérité terrain
+Échantillon de 6 textes annotés à la main : 6/6 (100 %).
+Cas piège (date + trait d'union, « Le web a été inventé en 1989 par
+Tim Berners-Lee ») : prédit « théorique », attendu « théorique », donc pas de faux positif sur ce cas.
+
+Limites :
+- L'échantillon est très petit (6 textes, dont 1 cas piège) : 100 % ne prouve pas que l'heuristique est fiable sur de vrais cours.
+- L'heuristique repose sur « un nombre + un opérateur » et peut produire des faux positifs sur d'autres textes (par exemple une énumération « 1 - 2 - 3 » ou une plage de pages).
+- La vérité terrain est manuelle : la concordance avec le LLM n'est pas mesurée.
+
+#### Cas A : génération sans résumé injecté
+Le prompt de génération n'injecte ni résumé, ni content_type, ni matière : la génération actuelle est déjà « sans résumé ». Aucune baisse de qualité n'est attendue de la suppression du résumé (code mort). Vérifié par `test_generation_sans_resume_dans_le_prompt`.
