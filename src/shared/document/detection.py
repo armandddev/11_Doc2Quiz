@@ -1,5 +1,6 @@
 from .models import Section
 import json
+from .calculation import contains_calculation
 
 def detection_section_displine(section : Section) :
     # Check if the section is not empty
@@ -26,3 +27,10 @@ def detection_section_displine(section : Section) :
             return section
     except Exception:
         raise Exception("Problem of connection")
+
+
+def detection_section_heuristic(section: Section) -> Section:
+    if not section.text.strip():
+        raise Exception("Section empty")
+    section.content_type = "calcul" if contains_calculation(section.text) else "théorique"
+    return section
