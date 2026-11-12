@@ -1,4 +1,7 @@
 anti_verbatim:
   threshold: 0.40
   max_retries: 2
+
+ollama:
+  max_concurrent_calls: 4
   

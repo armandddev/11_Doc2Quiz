@@ -1,3 +1,4 @@
+import asyncio
 import json
 from pathlib import Path
 from difflib import SequenceMatcher
@@ -306,6 +307,179 @@ def generate_qcm_question(
     )
     return last_result or {"question": "", "options": [], "correct": "", "type": "qcm"}
 
+
+async def generate_qcm_question_async(
+    source_text: str,
+    level: str,
+    revision_type: str,
+    llm_client,
+    excluded_questions: list[str] | None = None,
+) -> dict:
+    """
+    Génère une question QCM (4 options, 1 correcte) pour une section.
+    Retourne un dict : { question, options, correct, type }.
+    """
+    level_label    = _LEVEL_LABELS.get(level, "niveau universitaire généraliste")
+    revision_label = _REVISION_LABELS.get(revision_type, "une question de compréhension")
+
+    JSON_FORMAT = (
+        "Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans texte autour.\n"
+        "N'ajoute jamais de commentaire, de raisonnement ou de balise <think>.\n"
+        "Format attendu :\n"
+        '{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], '
+        '"feedbacks": ["pourquoi A", "pourquoi B", "pourquoi C", "pourquoi D"], '
+        '"correct": "A"}\n\n'
+        "Règles :\n"
+        "- La question teste la compréhension, pas la mémorisation mot pour mot\n"
+        "- La question porte UNIQUEMENT sur le sujet du texte source : "
+        "aucun exemple d'un autre domaine (commerce, vie courante, etc.)\n"
+        "- 4 options plausibles ET toutes différentes, une seule correcte\n"
+        '- "feedbacks" contient 4 phrases courtes, dans le même ordre que les options, '
+        "expliquant pourquoi chaque option est correcte ou incorrecte\n"
+        "- Écris les formules mathématiques en texte simple (ex: 'a puissance 13 modulo n'), pas en LaTeX\n"
+        '- "correct" contient uniquement la lettre : A, B, C ou D, et doit correspondre '
+        "à l'option que tes feedbacks présentent comme correcte"
+    )
+
+    exclusion_prompt = ""
+    angle_prompt = ""
+    if excluded_questions:
+        exclusion_prompt = (
+            "\nQuestions DÉJÀ présentes dans le QCM (interdit de les reprendre, "
+            "même reformulées) :\n"
+            + "\n".join(f"- {question}" for question in excluded_questions)
+            + "\n"
+        )
+        angle = _ANGLES[len(excluded_questions) % len(_ANGLES)]
+        angle_prompt = (
+            f"\nLa nouvelle question doit porter sur : {angle}. "
+            "Elle doit traiter une notion différente des questions ci-dessus.\n"
+        )
+
+    prompt_initial = (
+        f"Tu es un enseignant expert. Génère {revision_label} de type QCM "
+        f"adaptée au {level_label}.\n\n"
+        f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
+        f"{angle_prompt}"
+        f"{JSON_FORMAT}"
+    )
+
+    prompt_verbatim = (
+        "Ta question précédente était trop proche mot pour mot du texte source. "
+        "Reformule-la avec une structure et des mots complètement différents.\n\n"
+        f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
+        f"{angle_prompt}"
+        f"{JSON_FORMAT}"
+    )
+    # Prompt dans le cas ou la question généré est similaire à la précédente 
+    prompt_duplicate = (
+        "Ta question précédente était un DOUBLON d'une question déjà présente. "
+        "Change complètement de sujet : choisis une autre notion du texte, "
+        "avec une autre réponse correcte.\n\n"
+        f"Texte source :\n{source_text}\n\n"
+        f"{exclusion_prompt}"
+        f"{angle_prompt}"
+        f"{JSON_FORMAT}"
+    )
+
+    last_result: dict | None = None
+    last_reason = ""
+
+    for attempt in range(settings.anti_verbatim_max_retries + 1):
+        if attempt == 0:
+            prompt = prompt_initial
+        elif last_reason == "déjà présente":
+            prompt = prompt_duplicate
+        else:
+            prompt = prompt_verbatim
+
+        # Impact sur la formulation 
+        # Une température élevée fait boucler certains modèles Gemma lors d'une sortie Json (mots répétés chaînes non terminées)
+        temperature = 0.15 if (excluded_questions or attempt > 0) else 0.1
+        output_format = QCM_SCHEMA if attempt < 2 else "json"
+
+        # Appel LLM
+        try:
+            res = await llm_client.generate_text_async(
+                prompt,
+                format=output_format,
+                options={
+                    "temperature": temperature,
+                    "num_predict": 768,
+                    "repeat_penalty": 1.1,
+                    "repeat_last_n": 128,
+                    "seed": random.randint(1, 2**31 - 1),
+                },
+            )
+            raw = res.response if hasattr(res, "response") else str(res)
+        except Exception as exc:
+            logger.error("Erreur appel LLM (tentative %d) : %s", attempt + 1, exc)
+            continue
+
+        # Parse JSON
+        parsed = _parse_llm_json(raw)
+        if parsed is None:
+            logger.warning(
+                "Réponse LLM non-JSON (tentative %d) : %r", attempt + 1, raw[:120]
+            )
+            continue
+
+        question_text = html.unescape(str(parsed.get("question", ""))).strip()
+        options       = [html.unescape(str(o)) for o in parsed.get("options", [])]
+        correct       = str(parsed.get("correct", "")).strip().upper()
+        feedbacks     = [html.unescape(str(f)) for f in parsed.get("feedbacks", [])]
+
+        # Permet de nettoyer la réponse 
+        if (
+            not _is_valid_qcm_payload(question_text, options, feedbacks)
+            or correct not in ("A", "B", "C", "D")
+        ):
+            bodies = {re.sub(r"^[A-D][\.\)]\s*", "", o).strip().casefold() for o in options}
+            if len(bodies) != 4:
+                logger.warning("Options en double (tentative %d)", attempt + 1)
+                continue
+            logger.warning("JSON invalide ou sortie répétitive (tentative %d)", attempt + 1)
+            continue
+
+        is_duplicate = any(
+            SequenceMatcher(
+                None,
+                question_text.casefold().strip(),
+                existing.casefold().strip(),
+            ).ratio() >= 0.9
+            for existing in excluded_questions or []
+            if existing
+        )
+
+        # Anti-verbatim et anti-répétition
+        if not is_too_similar(question_text, source_text) and not is_duplicate:
+            logger.info("Question acceptée (tentative %d)", attempt + 1)
+            return {
+                "question":  question_text,
+                "options":   options,
+                "correct":   correct,
+                "feedbacks": feedbacks,
+                "type":      "qcm",
+            }
+
+        last_reason = "déjà présente" if is_duplicate else "trop similaire au source"
+        logger.warning("Tentative %d rejetée — question %s", attempt + 1, last_reason)
+        last_result = {
+            "question":  question_text,
+            "options":   options,
+            "correct":   correct,
+            "feedbacks": feedbacks,
+            "type":      "qcm",
+        }
+
+    logger.error(
+        "Échec anti-verbatim après %d tentatives — retour de la dernière question",
+        settings.anti_verbatim_max_retries + 1,
+    )
+    return last_result or {"question": "", "options": [], "correct": "", "type": "qcm"}
+
 # Ajouts de questions au QCM
 def expand_qcm(
     questions: list[dict],
@@ -395,17 +569,14 @@ def expand_qcm(
 
 # Generate QCM
 
-def generation_qcm(
+async def generation_qcm_async(
     file_input,
     llm_client,
     level: str = "",
     revision: str = "Les deux",
 ) -> list[dict]:
-    """
-    Extrait le document → segmente en sections → génère 1 question QCM par section.
-    Retourne une liste de dicts { question, options, correct, type, section }.
-    """
-    filename  = file_input.name if hasattr(file_input, "name") else str(file_input)
+    """Génère les questions indépendantes en parallèle."""
+    filename = file_input.name if hasattr(file_input, "name") else str(file_input)
     extension = Path(filename).suffix.lower()
 
     if extension == ".md":
@@ -420,26 +591,74 @@ def generation_qcm(
     sections_raw = sections_raw[:max_q]
     total = len(sections_raw)
     logger.info(f"[{total}] sections détectées (cap={max_q})")
+    semaphore = asyncio.Semaphore(
+        getattr(settings, "ollama_max_concurrent_calls", 4)
+    )
+    active_calls = 0
 
-    qcm: list[dict] = []
-
-    for idx, section in enumerate(sections_raw, start=1):
+    async def generate_one(idx: int, section) -> tuple[int, dict]:
+        nonlocal active_calls
         if isinstance(section, dict):
             source_text = section.get("text") or section.get("content") or str(section)
         else:
             source_text = str(section)
 
         if not source_text.strip():
-            continue
+            return idx, {}
 
         logger.info(f"[{idx}/{total}] Génération en cours...")
-        question_data = generate_qcm_question(source_text, level, revision, llm_client)
-        question_data["section"] = section
+        async with semaphore:
+            active_calls += 1
+            logger.info(
+                "[%d/%d] Appel LLM démarré (%d appel(s) actif(s))",
+                idx,
+                total,
+                active_calls,
+            )
+            try:
+                # to_thread permet de lancer plusieurs appels indépendants sans
+                # bloquer la boucle asyncio.
+                question_data = await asyncio.to_thread(
+                    generate_qcm_question,
+                    source_text,
+                    level,
+                    revision,
+                    llm_client,
+                )
+                question_data["section"] = section
+                logger.info("[%d/%d] Appel LLM terminé", idx, total)
+                return idx, question_data
+            except Exception:
+                logger.exception("Erreur génération section %d", idx)
+                return idx, {}
+            finally:
+                active_calls -= 1
+
+    results = await asyncio.gather(
+        *(generate_one(idx, section) for idx, section in enumerate(sections_raw, start=1))
+    )
+
+    qcm: list[dict] = []
+    for idx, question_data in results:
         if not question_data.get("question"):
             logger.warning(f"[{idx}/{total}] Section ignorée — question vide")
             continue
         qcm.append(question_data)
-        logger.info(f"[{idx}/{total}] Question générée")
 
     logger.info(f"QCM terminé — {len(qcm)} questions")
     return qcm
+
+
+def generation_qcm(
+    file_input,
+    llm_client,
+    level: str = "",
+    revision: str = "Les deux",
+) -> list[dict]:
+    """
+    Extrait le document → segmente en sections → génère 1 question QCM par section.
+    Retourne une liste de dicts { question, options, correct, type, section }.
+    """
+    return asyncio.run(
+        generation_qcm_async(file_input, llm_client, level=level, revision=revision)
+    )

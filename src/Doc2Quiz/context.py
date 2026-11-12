@@ -48,9 +48,12 @@ class AppContext:
 
     def generate_qcm(self, file_input, revision: str = "") -> list[dict]:
         from Doc2Quiz.ollama_client import OllamaWrapper
+        from Doc2Quiz.config import settings
         from service.core import generation_qcm
 
-        client = OllamaWrapper()
+        client = OllamaWrapper(
+            max_concurrent_calls=settings.ollama_max_concurrent_calls
+        )
         return generation_qcm(
             file_input,
             client,

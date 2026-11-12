@@ -10,3 +10,4 @@ motor
 pymongo>=4.9
 reportlab
 requests>=2.31.0
+httpx>=0.27.0
