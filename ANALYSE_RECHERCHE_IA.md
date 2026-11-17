@@ -275,6 +275,10 @@ La parallélisation ne s'applique qu'entre des sections différentes : au sein d
 
 Une autre piste est de demander 2 à 3 questions en un seul appel, afin de ne traiter le texte source qu'une fois et de laisser le modèle éviter lui-même les doublons. Elle est à tester, car les petits modèles perdent en qualité lorsqu'on leur demande trop de contenu d'un coup.
 
+Mis en place du moèle asynchrone testé en mode local uniquement -> Environ 30 secondes de génération par question 
+Environ 6 appels se lancent en même temps ce qui permet un gain de temps assez important.
+Si il y a plus de 6 sections dans le document, alors 6 appels sont lancés ensuite les autres appels sont mis en attente et sont ensuite exécutés. 
+
 ## Texte anglais
 
 Lorsqu'un document en anglais est fourni, les questions et les réponses sont générées en français, mais elles portent bien sur le contenu du document anglais. Ce comportement vient du fait que les consignes envoyées au modèle (le prompt) sont rédigées en français : le modèle répond dans la langue de la consigne, et non dans celle du texte source.
