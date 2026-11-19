@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   mongo:
     image: mongo:7-jammy
@@ -27,6 +25,8 @@ services:
       dockerfile: docker/Dockerfile
     container_name: sae_Doc2Quiz
     command: python src/Doc2Quiz/ui_gradio.py
+    env_file:
+      - .env
     ports:
       - "7860:7860"
     environment:

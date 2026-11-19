@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import asyncio
 import json
 import logging
 import os
@@ -12,6 +13,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urljoin
 
+import httpx
 from dotenv import find_dotenv, load_dotenv
 
 # find_dotenv() remonte l'arborescence depuis le CWD jusqu'à trouver le .env
@@ -41,6 +43,7 @@ _MODEL_EMBED = _require("OLLAMA_DEFAULT_EMBED")
 _TIMEOUT     = float(os.getenv("OLLAMA_TIMEOUT_S",      "600.0"))
 _MAX_RETRIES = int(os.getenv("OLLAMA_MAX_RETRIES",       "3"))
 _BACKOFF     = float(os.getenv("OLLAMA_RETRY_BACKOFF_S", "1.0"))
+_MAX_CONCURRENT_CALLS = int(os.getenv("OLLAMA_MAX_CONCURRENT_CALLS", "4"))
 
 
 # ---------------------------------------------------------------------------
@@ -121,12 +124,16 @@ class OllamaWrapper:
         timeout_s:       float = _TIMEOUT,
         max_retries:     int   = _MAX_RETRIES,
         retry_backoff_s: float = _BACKOFF,
+        max_concurrent_calls: int = _MAX_CONCURRENT_CALLS,
     ) -> None:
+        if max_concurrent_calls < 1:
+            raise ValueError("max_concurrent_calls doit être supérieur ou égal à 1")
         self._base_url      = base_url.rstrip("/")
         self.default_model  = default_model
         self._timeout_s     = timeout_s
         self._max_retries   = max_retries
         self._retry_backoff = retry_backoff_s
+        self.max_concurrent_calls = max_concurrent_calls
         logger.debug("OllamaWrapper initialisé — url=%s, modèle=%s", self._base_url, self.default_model)
 
     @property
@@ -186,6 +193,69 @@ class OllamaWrapper:
             self._request("POST", "/api/generate", body=body, _log_prompt=prompt)
         )
 
+    async def generate_text_async(
+        self,
+        prompt: str,
+        *,
+        model: Optional[str] = None,
+        system: Optional[str] = None,
+        options: Optional[Mapping[str, Any]] = None,
+        format: Optional[Union[str, Mapping[str, Any]]] = None,
+    ) -> OllamaGenerateResult:
+        """Version asynchrone de generate_text()."""
+        model = model or self.default_model
+        body: Dict[str, Any] = {"model": model, "prompt": prompt, "stream": False}
+        if system is not None:
+            body["system"] = system
+        if options is not None:
+            body["options"] = dict(options)
+        if format is not None:
+            body["format"] = format
+            body["think"] = False
+
+        payload = await self._request_async(
+            "POST", "/api/generate", body=body, _log_prompt=prompt
+        )
+        return self._parse_generate_result(payload)
+
+    async def generate_texts_async(
+        self,
+        prompts: Sequence[str],
+        *,
+        model: Optional[str] = None,
+        system: Optional[str] = None,
+        options: Optional[Mapping[str, Any]] = None,
+        format: Optional[Union[str, Mapping[str, Any]]] = None,
+        max_concurrency: Optional[int] = None,
+    ) -> List[Union[OllamaGenerateResult, Exception]]:
+        """Génère plusieurs réponses en parallèle, sans perdre l'ordre des prompts.
+
+        Une erreur est renvoyée à la position de l'appel concerné et ne bloque
+        pas les autres appels.
+        """
+        if max_concurrency is None:
+            max_concurrency = self.max_concurrent_calls
+        if max_concurrency < 1:
+            raise ValueError("max_concurrency doit être supérieur ou égal à 1")
+
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        async def generate_one(prompt: str) -> Union[OllamaGenerateResult, Exception]:
+            async with semaphore:
+                try:
+                    return await self.generate_text_async(
+                        prompt,
+                        model=model,
+                        system=system,
+                        options=options,
+                        format=format,
+                    )
+                except Exception as error:
+                    logger.error("Erreur lors d'un appel LLM parallèle : %s", error)
+                    return error
+
+        return list(await asyncio.gather(*(generate_one(prompt) for prompt in prompts)))
+
     def generate_stream(
         self,
         prompt:  str,
@@ -231,6 +301,33 @@ class OllamaWrapper:
             self._request("POST", "/api/generate", body=body, _log_prompt=prompt)
         )
 
+    async def generate_with_image_async(
+        self,
+        prompt: str,
+        *,
+        image: Union[str, Path, bytes],
+        model: Optional[str] = None,
+        system: Optional[str] = None,
+        options: Optional[Mapping[str, Any]] = None,
+    ) -> OllamaGenerateResult:
+        """Version asynchrone de generate_with_image()."""
+        model = model or _MODEL_VLM
+        body: Dict[str, Any] = {
+            "model": model,
+            "prompt": prompt,
+            "images": [self._encode_image(image)],
+            "stream": False,
+        }
+        if system is not None:
+            body["system"] = system
+        if options is not None:
+            body["options"] = dict(options)
+
+        payload = await self._request_async(
+            "POST", "/api/generate", body=body, _log_prompt=prompt
+        )
+        return self._parse_generate_result(payload)
+
     # ------------------------------------------------------------------
     # Chat multi-tours
     # ------------------------------------------------------------------
@@ -265,6 +362,50 @@ class OllamaWrapper:
             done=           payload.get("done")           if isinstance(payload.get("done"),           bool) else None,
             total_duration= payload.get("total_duration") if isinstance(payload.get("total_duration"), int)  else None,
             eval_count=     payload.get("eval_count")     if isinstance(payload.get("eval_count"),     int)  else None,
+        )
+
+    async def chat_async(
+        self,
+        messages: Sequence[OllamaChatMessage],
+        *,
+        model: Optional[str] = None,
+        options: Optional[Mapping[str, Any]] = None,
+    ) -> OllamaChatResult:
+        """Version asynchrone de chat()."""
+        model = model or self.default_model
+        body: Dict[str, Any] = {
+            "model": model,
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+            "stream": False,
+        }
+        if options is not None:
+            body["options"] = dict(options)
+
+        last_user = next((m.content for m in reversed(messages) if m.role == "user"), None)
+        payload = await self._request_async(
+            "POST", "/api/chat", body=body, _log_prompt=last_user
+        )
+        raw_msg = payload.get("message")
+        if not isinstance(raw_msg, dict):
+            raise OllamaResponseError(f"Réponse /api/chat inattendue : {payload!r}")
+
+        return OllamaChatResult(
+            message=OllamaChatMessage(
+                role=raw_msg.get("role", "assistant"),
+                content=raw_msg.get("content", ""),
+            ),
+            model=payload.get("model") if isinstance(payload.get("model"), str) else None,
+            done=payload.get("done") if isinstance(payload.get("done"), bool) else None,
+            total_duration=(
+                payload.get("total_duration")
+                if isinstance(payload.get("total_duration"), int)
+                else None
+            ),
+            eval_count=(
+                payload.get("eval_count")
+                if isinstance(payload.get("eval_count"), int)
+                else None
+            ),
         )
 
     # ------------------------------------------------------------------
@@ -342,6 +483,54 @@ class OllamaWrapper:
 
             if attempt < self._max_retries:
                 time.sleep(self._retry_backoff * (2 ** (attempt - 1)))
+
+        raise last_exc
+
+    async def _request_async(
+        self,
+        method: str,
+        path: str,
+        body: Optional[Dict[str, Any]] = None,
+        *,
+        _log_prompt: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Requête HTTP asynchrone avec retry/backoff."""
+        url = self._build_url(path)
+        last_exc: Exception = RuntimeError("Aucune tentative.")
+
+        async with httpx.AsyncClient(timeout=self._timeout_s) as client:
+            for attempt in range(1, self._max_retries + 1):
+                t0 = time.perf_counter()
+                try:
+                    response = await client.request(method, url, json=body)
+                    response.raise_for_status()
+                    ms = round((time.perf_counter() - t0) * 1000, 1)
+                    logger.info(
+                        "Ollama async %s %s → OK (%.0fms)",
+                        method,
+                        path,
+                        ms,
+                        extra={"latency_ms": ms, "status": "ok"},
+                    )
+                    return self._parse_json(response.content, url)
+                except httpx.HTTPStatusError as error:
+                    message = error.response.text[:1000]
+                    raise OllamaHTTPError(error.response.status_code, message) from error
+                except (httpx.RequestError, OSError, TimeoutError) as error:
+                    last_exc = OllamaConnectionError(
+                        f"[{attempt}/{self._max_retries}] {url} : {error}"
+                    )
+                    logger.warning(
+                        "Ollama async %s %s → échec tentative %d/%d : %s",
+                        method,
+                        path,
+                        attempt,
+                        self._max_retries,
+                        error,
+                    )
+
+                if attempt < self._max_retries:
+                    await asyncio.sleep(self._retry_backoff * (2 ** (attempt - 1)))
 
         raise last_exc
 
