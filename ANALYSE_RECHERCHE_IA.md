@@ -259,13 +259,13 @@ Nous avons donc mit en place un contrôle des réponses doivent avant d'être ut
 
 ## Proposition d'évolution des appels IA
 
-Actuellement, les appels à Ollama sont faits un par un : une section est traitée, puis la suivante. Le temps total est donc la somme de tous les appels :
+Avant, les appels à Ollama étaient faits un par un : une section etait traitée, puis la suivante. Le temps total était donc la somme de tous les appels :
 
 ```text
 appel 1 + appel 2 + appel 3 + appel 4 = temps total
 ```
 
-Une piste d'amélioration est de lancer plusieurs appels en même temps (parallélisation). Les sections étant indépendantes, le temps total serait alors proche de celui de l'appel le plus long :
+Ensuite nous sommes passés à plusieurs appels en même temps (parallélisation). Les sections étant indépendantes, le temps total est alors proche de celui de l'appel le plus long :
 
 ```text
 max(appel 1, appel 2, appel 3, appel 4) = temps total
@@ -273,11 +273,10 @@ max(appel 1, appel 2, appel 3, appel 4) = temps total
 
 La parallélisation ne s'applique qu'entre des sections différentes : au sein d'une même section, les questions restent générées l'une après l'autre, car chaque nouvelle question doit connaître les précédentes pour éviter les doublons.
 
-Une autre piste est de demander 2 à 3 questions en un seul appel, afin de ne traiter le texte source qu'une fois et de laisser le modèle éviter lui-même les doublons. Elle est à tester, car les petits modèles perdent en qualité lorsqu'on leur demande trop de contenu d'un coup.
-
-Mis en place du moèle asynchrone testé en mode local uniquement -> Environ 30 secondes de génération par question 
+Mis en place du modèle asynchrone testé en mode local uniquement -> Environ 30 secondes de génération par question 
 Environ 6 appels se lancent en même temps ce qui permet un gain de temps assez important.
 Si il y a plus de 6 sections dans le document, alors 6 appels sont lancés ensuite les autres appels sont mis en attente et sont ensuite exécutés. 
+Ainsi le gain de temps est maintenant considérable avec cette évolution 
 
 ## Texte anglais
 
