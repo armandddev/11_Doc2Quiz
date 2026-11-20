@@ -22,7 +22,6 @@ from pages.page_profil import render_profil
 from auth import update_user_profile, delete_user_account
 from db import get_db, init_indexes
 
-# US-22 : persistance des retours enseignant
 from service.feedback_service import (
     reject_generation,
     correct_question,
@@ -59,7 +58,6 @@ def on_go_to_qcm(file, revision, difficulty, app_context):
     )
 
 
-# US-22 : version async — persiste la génération et ses questions si connecté
 async def on_generate_qcm_and_display(app_context):
     try:
         questions = await asyncio.to_thread(
@@ -90,7 +88,6 @@ async def on_generate_qcm_and_display(app_context):
             gr.update(visible=False),            # feedback_panel
         )
 
-    # US-22 : persistance si l'utilisateur est authentifié
     if app_context.is_authenticated:
         try:
             doc_name = ""
@@ -150,7 +147,6 @@ def section_choices(questions: list[dict]) -> list[tuple[str, str]]:
     return choices
 
 
-# US-22 : version async — persiste aussi les nouvelles questions
 async def on_add_questions(questions, selected_sections, app_context):
     """Ajoute deux questions par section, persiste les nouvelles, actualise l'aperçu."""
     try:
@@ -163,7 +159,6 @@ async def on_add_questions(questions, selected_sections, app_context):
             selected_sections=selected_sections or None,
         )
 
-        # US-22 : persister les nouvelles questions
         new_questions = [q for q in expanded if q.get("is_new")]
         if new_questions and app_context.is_authenticated and app_context.generation_id:
             try:
@@ -468,11 +463,9 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
        btn_cancel_edit,
    ) = render_profil()
 
-    # ── Panel retours enseignant (US-22) ──────────────────────────────────
     with gr.Column(visible=False) as feedback_panel:
         gr.Markdown("## Retours sur le QCM")
 
-        # Rejet global
         with gr.Group():
             gr.Markdown("### 🗑️ Rejeter le QCM entier")
             reject_reason_input = gr.Textbox(
@@ -538,8 +531,8 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             quiz_questions_state,
             section_selector,
             app_state,
-            feedback_question_selector,  # US-22
-            feedback_panel,              # US-22
+            feedback_question_selector,
+            feedback_panel,
         ],
     )
 
@@ -552,7 +545,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             section_selector,
             app_state,
             expansion_status,
-            feedback_question_selector,  # US-22
+            feedback_question_selector,
         ],
     )
 
@@ -604,7 +597,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             generateQCM_container,
             loading_section,
             qcm_section,
-            feedback_panel,  # US-22
+            feedback_panel,
         ],
     )
 
@@ -717,7 +710,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             revisionEtudiant_container,
             choiceTeacher_container,
             sign_in_container,
-            feedback_panel,  # US-22
+            feedback_panel,
         ],
     )
 

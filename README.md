@@ -45,7 +45,7 @@ docker compose up -d
 ```bash
 # Windows
 $env:PYTHONPATH="src"
-pytest test/ -v -m
+pytest test/ -v
 
 # Linux / macOS
 PYTHONPATH=src pytest test/ -v
@@ -58,12 +58,11 @@ Voir `.env.sample` pour la liste complète des variables à configurer.
 | Variable | Description | Exemple |
 |---|---|---|
 | `OLLAMA_BASE_URL` | URL de l'instance Ollama | `http://10.22.28.190:11434` |
-| `LLM_MODEL` | Modèle LLM à utiliser | `gemma4:26b` |
-| `DB_HOST` | Hôte PostgreSQL | `pg` |
-| `DB_PORT` | Port PostgreSQL | `5432` |
-| `DB_NAME` | Nom de la base | `app_db` |
-| `DB_USER` | Utilisateur PostgreSQL | `app_user` |
-| `DB_PASSWORD` | Mot de passe PostgreSQL | — |
+| `OLLAMA_DEFAULT_LLM` | Modèle LLM à utiliser | `gemma4:26b` |
+| `OLLAMA_DEFAULT_VLM` | Modèle VLM (vision) | `llava:13b` |
+| `OLLAMA_TIMEOUT_S` | Timeout des requêtes Ollama (s) | `600` |
+| `MONGO_URI` | URI de connexion MongoDB | `mongodb://mongo:27017` |
+| `MONGO_DB_NAME` | Nom de la base de données | `doc2quiz` |
 
 ## Architecture
 
@@ -72,20 +71,22 @@ src/
 ├─ Doc2Quiz/               # Module principal
 │   ├─ ui_gradio.py        # Interface Gradio (point d'entrée)
 │   ├─ auth.py             # Inscription / connexion
-│   ├─ db.py               # Accès base de données
-│   ├─ context.py          # Contexte applicatif (session)
+│   ├─ db.py               # Connexion MongoDB (Motor async)
+│   ├─ context.py          # Contexte applicatif (session Gradio)
+│   ├─ config.py           # Configuration (pydantic-settings)
 │   ├─ service/            # Logique métier
-│   ├─ ollama_client/      # Wrapper LLM (Ollama)
-│   ├─ storage/            # Accès base de données
-│   ├─ Template/           # Templates UI
-│   └─ config.py           # Configuration
+│   │   ├─ core.py         # Pipeline : génération et extension de QCM
+│   │   ├─ feedback_service.py  # Retours utilisateur
+│   │   └─ anti_verbatim.py    # Détection de copie verbatim
+│   ├─ ollama_client/      # Wrapper HTTP vers Ollama
+│   ├─ storage/            # Accès MongoDB (générations, feedbacks)
+│   └─ Template/           # Templates HTML pour l'UI
 │
 └─ shared/                 # Code partagé
-    ├─ document/           # Extraction, segmentation, résumé, détection
+    ├─ document/           # Extraction PDF/Markdown, segmentation
     └─ logging.py
 
-test/                      # Tests pytest
-sql/                       # Scripts SQL (init.sql)
+test/                      # Tests pytest (pytest-asyncio + unittest.mock)
 docker/                    # Dockerfile
 docker-compose.yml
 .env.sample
