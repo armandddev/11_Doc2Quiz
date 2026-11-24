@@ -1,4 +1,67 @@
+from dataclasses import dataclass
 import gradio as gr
+from service.history_service import ALL, HISTORY_HEADERS
+
+@dataclass
+class HistoryComponents:
+    filter_document: object
+    filter_from: object
+    filter_to: object
+    btn_apply: object
+    btn_reset: object
+    table: object
+    btn_prev: object
+    page_label: object
+    btn_next: object
+    selected_label: object
+    btn_open: object
+    status: object
+    page_state: object
+    ids_state: object
+    selected_state: object
+    import_file: object
+    btn_import: object
+    import_status: object
+
+
+def render_history_section():
+    with gr.Column(elem_id="history_section"):
+        gr.HTML('<h3 style="font-size:1.25rem;font-weight:600;margin:20px 0 10px 0;">Mes QCM enregistrés</h3>')
+        import_file = gr.File(
+            label="Importer un QCM",
+            file_types=[".txt", ".gift", ".xml"],
+            file_count="single",
+        )
+        btn_import = gr.Button("Importer le QCM")
+        import_status = gr.Markdown()
+        with gr.Row(visible=False):
+            filter_document = gr.Dropdown(
+                label="Support", choices=[("Tous les supports", ALL)], value=ALL
+            )
+            filter_from = gr.Textbox(label="Du (JJ/MM/AAAA)")
+            filter_to = gr.Textbox(label="Au (JJ/MM/AAAA)")
+        with gr.Row(visible=False):
+            btn_apply = gr.Button("Filtrer", variant="primary")
+            btn_reset = gr.Button("Réinitialiser")
+        table = gr.Dataframe(
+            headers=HISTORY_HEADERS, value=[], interactive=False, wrap=True
+        )
+        with gr.Row():
+            btn_prev = gr.Button("◀ Précédent", interactive=False)
+            page_label = gr.Markdown("Aucun QCM enregistré.")
+            btn_next = gr.Button("Suivant ▶", interactive=False)
+        selected_label = gr.Markdown("Cliquez sur une ligne pour la sélectionner.")
+        btn_open = gr.Button("Rouvrir / Télécharger", variant="primary", interactive=False)
+        status = gr.Markdown()
+        page_state = gr.State(1)
+        ids_state = gr.State([])
+        selected_state = gr.State(None)
+    return HistoryComponents(
+        filter_document, filter_from, filter_to, btn_apply, btn_reset, table,
+        btn_prev, page_label, btn_next, selected_label, btn_open, status,
+        page_state, ids_state, selected_state,
+        import_file, btn_import, import_status,
+    )
 
 
 def render_profil():
@@ -49,6 +112,8 @@ def render_profil():
             elem_id="user_info_section",
         )
         btn_edit_profile = gr.Button("Modifier", elem_id="btn_edit_profile")
+
+      history = render_history_section()
 
       with gr.Column(elem_id="danger_zone_container"):
         gr.HTML(
@@ -132,4 +197,5 @@ def render_profil():
       edit_pwd,
       btn_save_profile,
       btn_cancel_edit,
+      history,
   )

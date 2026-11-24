@@ -1,5 +1,3 @@
-import base64
-from pathlib import Path
 import gradio as gr
 
 def render_choiceEtudiant():
@@ -26,20 +24,10 @@ def render_choiceEtudiant():
 
 
 
-        ## Visualisation du QCM via l'application web
-        pdf_path = Path("storage/CV-BONNIER_Gabin.pdf").resolve()
-
-        if pdf_path.exists():
-            encoded_pdf = base64.b64encode(pdf_path.read_bytes()).decode("utf-8")
-            html_viewer = f'''
-                <div style="width: 80%; margin: 20px auto; border: 2px solid #000000; border-radius: 8px; overflow: hidden; background: #FFFFFF;">
-                    <iframe src="data:application/pdf;base64,{encoded_pdf}" width="100%" height="500px" style="border: none;"></iframe>
-                </div>
-            '''
-        else:
-            html_viewer = f"<p style='color: red; text-align: center;'>Introuvable : {pdf_path}</p>"
-
-        gr.HTML(html_viewer)
+        student_preview_html = gr.HTML(
+            "<p style='text-align:center;color:#888'>Aucun QCM à afficher.</p>",
+            elem_id="student_preview",
+        )
 
         with gr.Row(elem_id="student_actions"):
             btn_export = gr.Button(
@@ -54,4 +42,4 @@ def render_choiceEtudiant():
                                     )
 
 
-    return revisionEtudiant_container, btn_export, btn_training, btn_profil_ChoiceEtudiant
+    return revisionEtudiant_container, btn_export, btn_training, btn_profil_ChoiceEtudiant, student_preview_html
