@@ -28,8 +28,8 @@ def render_homePage():
             with gr.Column(scale=1, elem_id="revision_box"):
                 gr.HTML('<h2 class="revision-title">Révision</h2>')
                 revision_choice = gr.Radio(
-                    choices=["Question de cours", "Exercices", "Les deux"],
-                    value="Question de cours",
+                    choices=["Questions de cours", "Exercices", "Les deux"],
+                    value="Questions de cours",
                     show_label=False,
                     interactive = True,
                     elem_id="revision_options"
