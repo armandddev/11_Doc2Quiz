@@ -46,7 +46,12 @@ class AppContext:
         self.user = None
         self.reset_document()
 
-    def generate_qcm(self, file_input, revision: str = "") -> list[dict]:
+    def generate_qcm(
+        self,
+        file_input,
+        revision: str = "",
+        context_summary: str | None = None,
+    ) -> list[dict]:
         from Doc2Quiz.ollama_client import OllamaWrapper
         from Doc2Quiz.config import settings
         from service.core import generation_qcm
@@ -59,4 +64,5 @@ class AppContext:
             client,
             level=self.pending_difficulty,
             revision=revision or self.pending_revision,
+            context_summary=context_summary,
         )

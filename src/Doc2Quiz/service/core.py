@@ -141,6 +141,7 @@ def generate_qcm_question(
     revision_type: str,
     llm_client,
     excluded_questions: list[str] | None = None,
+    context_summary: str | None = None,
 ) -> dict:
     """
     Génère une question QCM (4 options, 1 correcte) pour une section.
@@ -183,7 +184,15 @@ def generate_qcm_question(
             "Elle doit traiter une notion différente des questions ci-dessus.\n"
         )
 
+    context_block = (
+        "[HISTORIQUE DES RETOURS DE L'ENSEIGNANT]\n"
+        f"{context_summary.strip()}\n\n"
+        if context_summary and context_summary.strip()
+        else ""
+    )
+
     prompt_initial = (
+        f"{context_block}"
         f"Tu es un enseignant expert. Génère {revision_label} de type QCM "
         f"adaptée au {level_label}.\n\n"
         f"Texte source :\n{source_text}\n\n"
@@ -193,6 +202,7 @@ def generate_qcm_question(
     )
 
     prompt_verbatim = (
+        f"{context_block}"
         "Ta question précédente était trop proche mot pour mot du texte source. "
         "Reformule-la avec une structure et des mots complètement différents.\n\n"
         f"Texte source :\n{source_text}\n\n"
@@ -202,6 +212,7 @@ def generate_qcm_question(
     )
     # Prompt dans le cas ou la question généré est similaire à la précédente 
     prompt_duplicate = (
+        f"{context_block}"
         "Ta question précédente était un DOUBLON d'une question déjà présente. "
         "Change complètement de sujet : choisis une autre notion du texte, "
         "avec une autre réponse correcte.\n\n"
@@ -488,6 +499,7 @@ def expand_qcm(
     revision: str = "Les deux",
     selected_sections: list[str] | None = None,
     questions_per_section: int = 2,
+    context_summary: str | None = None,
 ) -> list[dict]:
     """Génère des questions supplémentaires pour les sections demandées."""
     if not questions:
@@ -547,6 +559,7 @@ def expand_qcm(
                 revision,
                 llm_client,
                 excluded_questions=section_excluded,   
+                context_summary=context_summary,
             )
             question_text = generated.get("question", "").strip()
             if not question_text or question_text in excluded:
@@ -574,6 +587,7 @@ async def generation_qcm_async(
     llm_client,
     level: str = "",
     revision: str = "Les deux",
+    context_summary: str | None = None,
 ) -> list[dict]:
     """Génère les questions indépendantes en parallèle."""
     filename = file_input.name if hasattr(file_input, "name") else str(file_input)
@@ -591,6 +605,11 @@ async def generation_qcm_async(
     sections_raw = sections_raw[:max_q]
     total = len(sections_raw)
     logger.info(f"[{total}] sections détectées (cap={max_q})")
+    if context_summary and context_summary.strip():
+        logger.info(
+            "Résumé injecté dans la génération | résumé=%s",
+            context_summary,
+        )
     semaphore = asyncio.Semaphore(
         getattr(settings, "ollama_max_concurrent_calls", 4)
     )
@@ -624,6 +643,7 @@ async def generation_qcm_async(
                     level,
                     revision,
                     llm_client,
+                    context_summary=context_summary,
                 )
                 question_data["section"] = section
                 logger.info("[%d/%d] Appel LLM terminé", idx, total)
@@ -654,11 +674,18 @@ def generation_qcm(
     llm_client,
     level: str = "",
     revision: str = "Les deux",
+    context_summary: str | None = None,
 ) -> list[dict]:
     """
     Extrait le document → segmente en sections → génère 1 question QCM par section.
     Retourne une liste de dicts { question, options, correct, type, section }.
     """
     return asyncio.run(
-        generation_qcm_async(file_input, llm_client, level=level, revision=revision)
+        generation_qcm_async(
+            file_input,
+            llm_client,
+            level=level,
+            revision=revision,
+            context_summary=context_summary,
+        )
     )

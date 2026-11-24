@@ -3,7 +3,7 @@ from typing import Literal
 
 from bson import ObjectId
 
-from db import get_db
+from Doc2Quiz.db import get_db
 
 FeedbackType = Literal["correction", "rejet", "notation"]
 

@@ -1,4 +1,5 @@
-from storage.feedback_storage import save_feedback, upsert_rating
+from Doc2Quiz.storage.feedback_storage import save_feedback, upsert_rating
+from Doc2Quiz.service.context_summary_service import schedule_context_summary_refresh
 from shared.logging import get_logger
 
 logger = get_logger("feedback_service")
@@ -30,6 +31,7 @@ async def reject_generation(
     logger.info(
         "Rejet enregistré | generation=%s feedback=%s", generation_id, feedback_id
     )
+    schedule_context_summary_refresh(user_id)
     return feedback_id
 
 
@@ -61,6 +63,7 @@ async def correct_question(
     logger.info(
         "Correction enregistrée | question=%s feedback=%s", question_id, feedback_id
     )
+    schedule_context_summary_refresh(user_id)
     return feedback_id
 
 
@@ -96,4 +99,5 @@ async def rate_question(
     logger.info(
         "Notation upsert %s | question=%s feedback=%s", label, question_id, feedback_id
     )
+    schedule_context_summary_refresh(user_id)
     return feedback_id

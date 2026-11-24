@@ -22,12 +22,13 @@ from pages.page_profil import render_profil
 from auth import update_user_profile, delete_user_account
 from db import get_db, init_indexes
 
-from service.feedback_service import (
-    reject_generation,
-    correct_question,
-    rate_question,
-)
 from storage.generation_storage import save_generation, append_questions
+from service.context_summary_service import (
+    get_summary_for_generation,
+    refresh_context_summary,
+)
+from Doc2Quiz.storage.feedback_storage import save_feedback
+from service.context_summary_service import schedule_context_summary_refresh
 from shared.logging import get_logger
 
 _logger = get_logger("ui_gradio")
@@ -60,10 +61,19 @@ def on_go_to_qcm(file, revision, difficulty, app_context):
 
 async def on_generate_qcm_and_display(app_context):
     try:
+        context_summary = None
+        if app_context.is_authenticated:
+            user_id = str(app_context.user.user_id)
+            try:
+                context_summary = await refresh_context_summary(user_id)
+            except Exception:
+                _logger.exception("Rafraîchissement du résumé échoué")
+                context_summary = await get_summary_for_generation(user_id)
         questions = await asyncio.to_thread(
             app_context.generate_qcm,
             app_context.pending_file,
             revision=app_context.pending_revision,
+            context_summary=context_summary,
         )
         app_context.sections = questions
         html = render_qcm_html(questions)
@@ -84,8 +94,6 @@ async def on_generate_qcm_and_display(app_context):
             questions,
             gr.update(choices=section_choices(questions), value=[]),
             app_context,
-            gr.update(choices=[], value=None),  # feedback_question_selector
-            gr.update(visible=False),            # feedback_panel
         )
 
     if app_context.is_authenticated:
@@ -117,8 +125,6 @@ async def on_generate_qcm_and_display(app_context):
         questions,
         gr.update(choices=section_choices(questions), value=[]),
         app_context,
-        gr.update(choices=q_choices, value=q_choices[0][1] if q_choices else None),
-        gr.update(visible=show_feedback),
     )
 
 
@@ -150,6 +156,14 @@ def section_choices(questions: list[dict]) -> list[tuple[str, str]]:
 async def on_add_questions(questions, selected_sections, app_context):
     """Ajoute deux questions par section, persiste les nouvelles, actualise l'aperçu."""
     try:
+        context_summary = None
+        if app_context.is_authenticated:
+            user_id = str(app_context.user.user_id)
+            try:
+                context_summary = await refresh_context_summary(user_id)
+            except Exception:
+                _logger.exception("Rafraîchissement du résumé échoué")
+                context_summary = await get_summary_for_generation(user_id)
         expanded = await asyncio.to_thread(
             expand_qcm,
             questions,
@@ -157,6 +171,7 @@ async def on_add_questions(questions, selected_sections, app_context):
             level=app_context.pending_difficulty,
             revision=app_context.pending_revision,
             selected_sections=selected_sections or None,
+            context_summary=context_summary,
         )
 
         new_questions = [q for q in expanded if q.get("is_new")]
@@ -205,7 +220,6 @@ def route_after_generate(app_context: AppContext):
             gr.update(visible=False),
             gr.update(visible=False),
             gr.update(visible=True),
-            gr.update(visible=False),  # feedback_panel
         )
     if not app_context.is_teacher:
         return (
@@ -214,7 +228,6 @@ def route_after_generate(app_context: AppContext):
             gr.update(visible=True),
             gr.update(visible=False),
             gr.update(visible=False),
-            gr.update(visible=False),  # feedback_panel
         )
     return (
         gr.update(visible=False),
@@ -222,7 +235,6 @@ def route_after_generate(app_context: AppContext):
         gr.update(visible=False),
         gr.update(visible=True),
         gr.update(visible=False),
-        gr.update(visible=False),  # feedback_panel
     )
 
 
@@ -463,42 +475,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
        btn_cancel_edit,
    ) = render_profil()
 
-    with gr.Column(visible=False) as feedback_panel:
-        gr.Markdown("## Retours sur le QCM")
-
-        with gr.Group():
-            gr.Markdown("### 🗑️ Rejeter le QCM entier")
-            reject_reason_input = gr.Textbox(
-                placeholder="Motif du rejet (obligatoire)…",
-                label="Motif",
-                lines=2,
-            )
-            btn_reject_qcm = gr.Button("Rejeter ce QCM", variant="stop")
-            reject_status = gr.Markdown()
-
-        gr.Markdown("---")
-
-        # Retour par question
-        with gr.Group():
-            gr.Markdown("### ✏️ Retour par question")
-            feedback_question_selector = gr.Dropdown(
-                label="Sélectionner une question",
-                choices=[],
-                value=None,
-            )
-            with gr.Row():
-                btn_thumbs_up   = gr.Button("👍 Bonne question", scale=1)
-                btn_thumbs_down = gr.Button("👎 À retravailler", scale=1)
-            rating_status = gr.Markdown()
-            correction_q_input = gr.Textbox(
-                placeholder="Correction ou remarque sur cette question…",
-                label="Correction libre",
-                lines=3,
-            )
-            btn_save_correction_q = gr.Button("💾 Enregistrer la correction", variant="primary")
-            correction_q_status = gr.Markdown()
-    # ── Fin panel retours ─────────────────────────────────────────────────
-
     btn_to_login.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
@@ -531,8 +507,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             quiz_questions_state,
             section_selector,
             app_state,
-            feedback_question_selector,
-            feedback_panel,
         ],
     )
 
@@ -545,22 +519,45 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             section_selector,
             app_state,
             expansion_status,
-            feedback_question_selector,
         ],
     )
 
     # Appliquer une correction sur une question 
-    def appliquer_correction_question(questions, question_index, erreur):
+    async def appliquer_correction_question(app_context, questions, question_index, erreur):
         if not questions:
             return "", questions, "", "Aucune question disponible."
         if not erreur or not erreur.strip():
             return "", questions, "", "Veuillez préciser une modification."
 
-        updated_questions, _, _, _, message = enregistrer_modification(
+        updated_questions, _, _, _, message = await asyncio.to_thread(
+            enregistrer_modification,
             questions,
             question_index,
             erreur,
         )
+
+        if app_context and app_context.is_authenticated:
+            try:
+                feedback_id = await save_feedback(
+                    user_id=app_context.user.user_id,
+                    generation_id=app_context.generation_id or "",
+                    feedback_type="correction",
+                    contenu=erreur.strip(),
+                    question_id=(
+                        questions[question_index].get("_id")
+                        if 0 <= question_index < len(questions)
+                        else None
+                    ),
+                )
+                _logger.info(
+                    "Correction ciblée stockée | user=%s feedback=%s",
+                    app_context.user.user_id,
+                    feedback_id,
+                )
+                schedule_context_summary_refresh(app_context.user.user_id)
+            except Exception as exc:
+                _logger.warning("Stockage du retour ciblé échoué : %s", exc)
+
         return (
             gr.update(value=render_qcm_html(
                 updated_questions,
@@ -574,7 +571,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
     btn_submit_correction.click(
         fn=appliquer_correction_question,
-        inputs=[quiz_questions_state, current_index, correction_input],
+        inputs=[app_state, quiz_questions_state, current_index, correction_input],
         outputs=[
             qcm_html_out,
             quiz_questions_state,
@@ -589,7 +586,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             gr.update(visible=False),
             gr.update(visible=True),
             gr.update(visible=False),
-            gr.update(visible=False),  # feedback_panel
         ),
         inputs=None,
         outputs=[
@@ -597,7 +593,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             generateQCM_container,
             loading_section,
             qcm_section,
-            feedback_panel,
         ],
     )
 
@@ -710,7 +705,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             revisionEtudiant_container,
             choiceTeacher_container,
             sign_in_container,
-            feedback_panel,
         ],
     )
 
@@ -733,9 +727,40 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         outputs=[question_input, options_input, answer_input],
     )
 
+    async def save_existing_corrections(app_context, questions, corrections):
+        _logger.info(
+            "Clic correction IA | authentifie=%s correction_vide=%s",
+            bool(app_context and app_context.is_authenticated),
+            not bool(corrections and corrections.strip()),
+        )
+        if app_context and app_context.is_authenticated and corrections and corrections.strip():
+            try:
+                feedback_id = await save_feedback(
+                    user_id=app_context.user.user_id,
+                    generation_id=app_context.generation_id or "",
+                    feedback_type="correction",
+                    contenu=corrections.strip(),
+                    question_id=None,
+                )
+                _logger.info(
+                    "Correction stockée | user=%s feedback=%s",
+                    app_context.user.user_id,
+                    feedback_id,
+                )
+                schedule_context_summary_refresh(app_context.user.user_id)
+            except Exception as exc:
+                _logger.warning("Stockage du retour de correction échoué : %s", exc)
+
+        updated, question, options, answer, message = await asyncio.to_thread(
+            enregistrer_modifications,
+            questions,
+            corrections,
+        )
+        return updated, question, options, answer, message
+
     save_question_button.click(
-        fn=enregistrer_modifications,
-        inputs=[quiz_questions_state, error_input],
+        fn=save_existing_corrections,
+        inputs=[app_state, quiz_questions_state, error_input],
         outputs=[
             quiz_questions_state,
             question_input,
@@ -938,83 +963,6 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             );
             return [ctx, confirmation];
         }""",
-    )
-
-    # ── Wiring feedback (US-22) ───────────────────────────────────────────
-
-    async def on_reject_qcm(app_context, motif):
-        if not app_context.is_authenticated:
-            return gr.update(value="⚠️ Connectez-vous pour enregistrer un retour.")
-        if not app_context.generation_id:
-            return gr.update(value="⚠️ Aucune génération active.")
-        try:
-            await reject_generation(
-                user_id=app_context.user.user_id,
-                generation_id=app_context.generation_id,
-                motif=motif,
-            )
-            return gr.update(value="✅ Rejet enregistré.")
-        except ValueError as exc:
-            return gr.update(value=f"❌ {exc}")
-
-    btn_reject_qcm.click(
-        fn=on_reject_qcm,
-        inputs=[app_state, reject_reason_input],
-        outputs=[reject_status],
-    )
-
-    async def on_rate(app_context, question_id, rating):
-        if not app_context.is_authenticated:
-            return gr.update(value="⚠️ Connectez-vous pour noter.")
-        if not app_context.generation_id:
-            return gr.update(value="⚠️ Aucune génération active.")
-        if not question_id:
-            return gr.update(value="⚠️ Sélectionnez d'abord une question.")
-        try:
-            await rate_question(
-                user_id=app_context.user.user_id,
-                generation_id=app_context.generation_id,
-                question_id=str(question_id),
-                rating=rating,
-            )
-            label = "👍 enregistré" if rating == "thumbs_up" else "👎 enregistré"
-            return gr.update(value=f"✅ {label}.")
-        except ValueError as exc:
-            return gr.update(value=f"❌ {exc}")
-
-    btn_thumbs_up.click(
-        fn=lambda ctx, qid: on_rate(ctx, qid, "thumbs_up"),
-        inputs=[app_state, feedback_question_selector],
-        outputs=[rating_status],
-    )
-    btn_thumbs_down.click(
-        fn=lambda ctx, qid: on_rate(ctx, qid, "thumbs_down"),
-        inputs=[app_state, feedback_question_selector],
-        outputs=[rating_status],
-    )
-
-    async def on_save_correction_q(app_context, question_id, correction):
-        if not app_context.is_authenticated:
-            return gr.update(value="⚠️ Connectez-vous pour corriger.")
-        if not app_context.generation_id:
-            return gr.update(value="⚠️ Aucune génération active.")
-        if not question_id:
-            return gr.update(value="⚠️ Sélectionnez une question.")
-        try:
-            await correct_question(
-                user_id=app_context.user.user_id,
-                generation_id=app_context.generation_id,
-                question_id=str(question_id),
-                correction=correction,
-            )
-            return gr.update(value="✅ Correction enregistrée.")
-        except ValueError as exc:
-            return gr.update(value=f"❌ {exc}")
-
-    btn_save_correction_q.click(
-        fn=on_save_correction_q,
-        inputs=[app_state, feedback_question_selector, correction_q_input],
-        outputs=[correction_q_status],
     )
 
     demo.load(fn=init_indexes)
