@@ -1,7 +1,10 @@
 from pathlib import Path
 import asyncio
 import gradio as gr
+import html
 from service.auth_service import handle_login, handle_register
+from service.import_service import import_qcm_from_file
+from service.qcm_parser import QcmImportError
 from context import AppContext, Role, UserContext
 from zoneinfo import ZoneInfo
 from bson import ObjectId
@@ -21,14 +24,12 @@ from pages.page_quizResult import render_quiz_result
 from pages.page_profil import render_profil
 from auth import update_user_profile, delete_user_account
 from db import get_db, init_indexes
-
-from service.feedback_service import (
-    reject_generation,
-    correct_question,
-    rate_question,
-)
-from storage.generation_storage import save_generation, append_questions
+from service.feedback_service import (reject_generation, correct_question, rate_question,)
+from storage.generation_storage import (save_generation, append_questions, get_generations_for_user, get_questions_for_generation,)
+from service.history_service import ALL, build_page, document_choices, filter_generations
 from shared.logging import get_logger
+
+
 
 _logger = get_logger("ui_gradio")
 
@@ -429,7 +430,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
 
     register_view, reg_name, reg_fname, reg_email, reg_pwd, btn_register, btn_to_login = render_register_page()
     sign_in_container, si_email, si_pwd, btn_login, btn_goto_register = render_sign_in_page()
-    revisionEtudiant_container, btn_export_student, btn_training, btn_profil_ChoiceEtudiant = render_choiceEtudiant()
+    revisionEtudiant_container, btn_export_student, btn_training, btn_profil_ChoiceEtudiant, student_preview_html = render_choiceEtudiant()
     (
         choiceTeacher_container,
         btn_export_teacher,
@@ -442,7 +443,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         save_question_button,
         modification_status,
     ) = render_choiceTeacher()
-    exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM = render_exportQCM()
+    exportQCM_container, btn_exportPDF, btn_confirm_export, btn_profil_exportQCM, export_preview_html = render_exportQCM()
     training_quiz_container, btn_quit, question_header_html, qcm_block, qcm_radio, free_text_block, free_text_input, btn_validate, feedback_html, btn_profil_trainingQuiz = render_training_quiz()
     (
        profil_container,
@@ -461,6 +462,7 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
        edit_pwd,
        btn_save_profile,
        btn_cancel_edit,
+       history,
    ) = render_profil()
 
     with gr.Column(visible=False) as feedback_panel:
@@ -498,6 +500,14 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             btn_save_correction_q = gr.Button("💾 Enregistrer la correction", variant="primary")
             correction_q_status = gr.Markdown()
     # ── Fin panel retours ─────────────────────────────────────────────────
+
+
+    async def notify_saved(ctx: AppContext):
+        if ctx.generation_id:
+            gr.Info("Le QCM est bien sauvegardé dans votre profil.")
+        else:
+            gr.Warning("Le QCM n'a pas pu être sauvegardé.")
+
 
     btn_to_login.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
@@ -601,6 +611,15 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         ],
     )
 
+    def show_export_preview(questions):
+        if not questions:
+            return "<p style='text-align:center;color:#888'>Aucun QCM à afficher.</p>"
+        return (
+            "<div style='max-height:520px;overflow-y:auto;'>"
+            + render_qcm_html(questions, current_index=None)
+            + "</div>"
+        )
+
     export_io = dict(
         inputs=[btn_exportPDF, quiz_questions_state, app_state],
         outputs=[btn_confirm_export],
@@ -610,13 +629,36 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
         outputs=[revisionEtudiant_container, exportQCM_container]
-    ).then(fn=prepare_export, **export_io)
+    ).then(
+        fn=show_export_preview,
+        inputs=[quiz_questions_state],
+        outputs=[export_preview_html],
+    ).then(
+        fn=prepare_export, 
+        **export_io
+    ).then(
+        fn=notify_saved,
+        inputs=[app_state],
+        outputs=None
+    )
+    
 
     btn_export_teacher.click(
         fn=lambda: (gr.update(visible=False), gr.update(visible=True)),
         inputs=None,
         outputs=[choiceTeacher_container, exportQCM_container]
-    ).then(fn=prepare_export, **export_io)
+    ).then(
+        fn=show_export_preview,
+        inputs=[quiz_questions_state],
+        outputs=[export_preview_html],
+    ).then(
+        fn=prepare_export, 
+        **export_io
+    ).then(
+        fn=notify_saved,
+        inputs=[app_state],
+        outputs=None
+    )
 
     btn_exportPDF.change(fn=prepare_export, **export_io)
 
@@ -631,14 +673,44 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
         (btn_profil_trainingQuiz,   training_quiz_container),
     ]
 
+    history_outputs = [
+        history.table, history.page_label, history.page_state, history.ids_state,
+        history.selected_state, history.selected_label, history.btn_open,
+        history.btn_prev, history.btn_next, history.status, history.filter_document,
+    ]
+    history_filters = [history.filter_document, history.filter_from, history.filter_to]
+
+    async def history_view(ctx, page, document=ALL, date_from="", date_to=""):
+        hint = "Cliquez sur une ligne pour la sélectionner."
+        if not ctx or not ctx.user:
+            return (
+                [], "Aucun QCM enregistré.", 1, [], None, hint,
+                gr.update(interactive=False), gr.update(interactive=False),
+                gr.update(interactive=False), "",
+                gr.update(choices=[("Tous les supports", ALL)], value=ALL),
+            )
+        all_gens = await get_generations_for_user(ctx.user.user_id)
+        try:
+            filtered, msg = filter_generations(all_gens, document, date_from, date_to), ""
+        except ValueError as exc:
+            filtered, msg = all_gens, f"❌ {exc}"
+        rows, ids, page, label, has_prev, has_next = build_page(filtered, page)
+        return (
+            rows, label, page, ids, None, hint,
+            gr.update(interactive=False),
+            gr.update(interactive=has_prev), gr.update(interactive=has_next),
+            msg,
+            gr.update(choices=document_choices(all_gens), value=document),
+        )
+
     async def go_to_profil(ctx):
         t_html, u_html, h_html = await update_profile_view(ctx)
+        view = await history_view(ctx, 1)
         return (
             gr.update(visible=False),
             gr.update(visible=True),
-            t_html,
-            u_html,
-            h_html,
+            t_html, u_html, h_html,
+            *view,
         )
 
     for btn, current_page in profil_navigation:
@@ -651,8 +723,119 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
                 profil_title_html,
                 user_info_html,
                 history_info_html,
+                *history_outputs,
             ],
         )
+
+    async def on_history_filter(ctx, document, d_from, d_to):
+        return await history_view(ctx, 1, document, d_from, d_to)
+
+    async def on_history_reset(ctx):
+        view = await history_view(ctx, 1)
+        return (*view, "", "")
+
+    async def on_history_prev(ctx, page, document, d_from, d_to):
+        return await history_view(ctx, page - 1, document, d_from, d_to)
+
+    async def on_history_next(ctx, page, document, d_from, d_to):
+        return await history_view(ctx, page + 1, document, d_from, d_to)
+
+    def on_history_select(ids, evt: gr.SelectData):
+        row = evt.index[0]
+        if row >= len(ids):
+            return gr.skip(), gr.skip(), gr.skip()
+        support = evt.row_value[1] if evt.row_value else ""
+        return ids[row], f"Sélectionné : **{support}**", gr.update(interactive=True)
+
+    async def on_open_saved_qcm(ctx, generation_id):
+        if not ctx or not ctx.user or not generation_id:
+            return ctx, gr.skip(), gr.update(), gr.update(), "⚠️ Sélectionnez d'abord un QCM."
+        questions = await get_questions_for_generation(generation_id, ctx.user.user_id)
+        if questions is None:
+            return ctx, gr.skip(), gr.update(), gr.update(), "⛔ Accès refusé ou QCM introuvable."
+        ctx.generation_id = generation_id
+        ctx.sections = questions
+        return ctx, questions, gr.update(visible=False), gr.update(visible=True), ""
+
+    history.btn_apply.click(
+        fn=on_history_filter,
+        inputs=[app_state, *history_filters],
+        outputs=history_outputs,
+    )
+    history.btn_reset.click(
+        fn=on_history_reset,
+        inputs=[app_state],
+        outputs=[*history_outputs, history.filter_from, history.filter_to],
+    )
+    history.btn_prev.click(
+        fn=on_history_prev,
+        inputs=[app_state, history.page_state, *history_filters],
+        outputs=history_outputs,
+    )
+    history.btn_next.click(
+        fn=on_history_next,
+        inputs=[app_state, history.page_state, *history_filters],
+        outputs=history_outputs,
+    )
+    history.table.select(
+        fn=on_history_select,
+        inputs=[history.ids_state],
+        outputs=[history.selected_state, history.selected_label, history.btn_open],
+    )
+    history.btn_open.click(
+        fn=on_open_saved_qcm,
+        inputs=[app_state, history.selected_state],
+        outputs=[app_state, quiz_questions_state, profil_container,
+                 exportQCM_container, history.status],
+    ).then(
+        fn=show_export_preview,
+        inputs=[quiz_questions_state],
+        outputs=[export_preview_html],
+    ).then(fn=prepare_export, **export_io)
+
+    async def on_import_qcm(ctx, file):
+        skip_all = [gr.skip()] * len(history_outputs)
+        if not ctx or not ctx.user:
+            return ("⚠️ Connectez-vous pour importer un QCM.", *skip_all, gr.skip())
+        if file is None:
+            return ("⚠️ Choisissez d'abord un fichier.", *skip_all, gr.skip())
+        try:
+            result = await import_qcm_from_file(ctx.user.user_id, file)
+        except QcmImportError as exc:
+            return (f"❌ {html.escape(str(exc))}", *skip_all, gr.skip())
+        except Exception as exc:
+            _logger.warning("Import échoué : %s", exc)
+            return ("❌ Erreur inattendue pendant l'import.", *skip_all, gr.skip())
+
+        msg = f"✅ QCM importé : {len(result.questions)} question(s)."
+        if result.warnings:
+            details = "<br>".join(html.escape(w) for w in result.warnings)
+            msg += f"<br>⚠️ {len(result.warnings)} question(s) ignorée(s) :<br>{details}"
+        view = await history_view(ctx, 1)
+        return (msg, *view, None)
+
+    history.btn_import.click(
+        fn=on_import_qcm,
+        inputs=[app_state, history.import_file],
+        outputs=[history.import_status, *history_outputs, history.import_file],
+    )
+
+    async def on_thumbs_up(ctx, qid):
+        return await on_rate(ctx, qid, "thumbs_up")
+
+    async def on_thumbs_down(ctx, qid):
+        return await on_rate(ctx, qid, "thumbs_down")
+
+    btn_thumbs_up.click(
+        fn=on_thumbs_up,
+        inputs=[app_state, feedback_question_selector],
+        outputs=[rating_status],
+    )
+    btn_thumbs_down.click(
+        fn=on_thumbs_down,
+        inputs=[app_state, feedback_question_selector],
+        outputs=[rating_status],
+    )
 
     def on_start_training(type_rev):
         data = get_template_quiz(type_rev or "Questions de cours")
@@ -673,6 +856,10 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             quiz_questions_state, quiz_index_state,
             question_header_html, qcm_block, qcm_radio, free_text_block, free_text_input,
         ]
+    ).then(
+        fn=notify_saved,
+        inputs=[app_state],
+        outputs=None
     )
 
     def check_register_fields(n, fn, e, p):
@@ -725,6 +912,12 @@ with gr.Blocks(title="11_Doc2Quiz") as demo:
             error_input,
             modification_status,
         ],
+    )
+
+    btn_generate_ok.click(
+        fn=show_export_preview,
+        inputs=[quiz_questions_state],
+        outputs=[student_preview_html],
     )
 
     question_selector.change(
