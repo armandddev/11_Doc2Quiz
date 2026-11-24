@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from shared.logging import get_logger
 from typing import Any
 
@@ -8,6 +9,10 @@ logger = get_logger("segmentation")
 _CHUNK_SIZE    = 3000
 _CHUNK_OVERLAP = 100
 MAX_RETRIES    = 3
+
+# Schéma imposé à la sortie du LLM : un tableau JSON de titres.
+# Passer un format désactive aussi le mode « réflexion » (think=False) dans OllamaWrapper.
+_TITLES_SCHEMA = {"type": "array", "items": {"type": "string"}}
 
 _SYSTEM_PROMPTS = {
     "Questions de cours": (
@@ -69,13 +74,19 @@ def _segment_with_llm(
 ) -> list[dict]:
     system_prompt = _SYSTEM_PROMPTS.get(revision, _SYSTEM_PROMPTS["Les deux"])
     prompt = _build_prompt(chunk, titles, revision)
-    options = {"num_ctx": 8192, "num_predict": -1}
+    options = {"num_ctx": 8192, "num_predict": 512}
 
     for attempt in range(MAX_RETRIES):
         raw = ""
         try:
-            res = llm_client.generate_text(prompt, system=system_prompt, options=options)
+            res = llm_client.generate_text(
+                prompt, system=system_prompt, options=options,
+                format=_TITLES_SCHEMA,
+            )
             raw = res.response if hasattr(res, "response") else str(res)
+        except TimeoutError as exc:
+            logger.error("Timeout LLM chunk %d — section brute conservée : %s", chunk_idx, exc)
+            return [{"title": f"Section {chunk_idx + 1}", "text": chunk}]
         except Exception as exc:
             logger.warning("Erreur LLM chunk %d (tentative %d/%d) : %s",
                            chunk_idx, attempt + 1, MAX_RETRIES, exc)
@@ -181,15 +192,21 @@ def segment_text(
         return []
 
     chunks = _chunk_text(text)
+    # Nombre d'appels LLM simultanés : celui configuré sur le client (OLLAMA_MAX_CONCURRENT_CALLS)
+    max_workers = max(1, min(len(chunks), getattr(llm_client, "max_concurrent_calls", 1)))
     logger.info(
-        "Segmentation démarrée — %d chunk(s), revision=%r", len(chunks), revision
+        "Segmentation démarrée — %d chunk(s), revision=%r, %d en parallèle",
+        len(chunks), revision, max_workers,
     )
 
-    all_sections: list[dict] = []
-    for idx, chunk in enumerate(chunks):
-        sections = _segment_with_llm(chunk, titles, llm_client, chunk_idx=idx, revision=revision)
-        all_sections.extend(sections)
+    def segment_one(idx: int) -> list[dict]:
+        sections = _segment_with_llm(chunks[idx], titles, llm_client, chunk_idx=idx, revision=revision)
         logger.info("Chunk %d/%d → %d section(s)", idx + 1, len(chunks), len(sections))
+        return sections
 
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        results = list(pool.map(segment_one, range(len(chunks))))
+
+    all_sections = [section for sections in results for section in sections]
     logger.info("Segmentation terminée — %d section(s) au total", len(all_sections))
     return all_sections

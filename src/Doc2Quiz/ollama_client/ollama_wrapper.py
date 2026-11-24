@@ -56,6 +56,9 @@ class OllamaError(RuntimeError):
 class OllamaConnectionError(OllamaError):
     """Impossible de joindre le serveur."""
 
+class OllamaTimeoutError(OllamaConnectionError, TimeoutError):
+    """Le serveur n'a pas répondu dans le délai (OLLAMA_TIMEOUT_S) : inutile de relancer."""
+
 class OllamaResponseError(OllamaError):
     """Réponse HTTP/JSON invalide ou inattendue."""
 
@@ -476,6 +479,12 @@ class OllamaWrapper:
 
             except (urllib.error.URLError, OSError, TimeoutError) as e:
                 ms = round((time.perf_counter() - t0) * 1000, 1)
+                is_timeout = isinstance(e, TimeoutError) or isinstance(getattr(e, "reason", None), TimeoutError)
+                if is_timeout:
+                    logger.error("Ollama %s %s → timeout (%.0fms), abandon sans nouvelle tentative",
+                                 method, path, ms,
+                                 extra={**log_ctx, "latency_ms": ms, "status": "timeout"})
+                    raise OllamaTimeoutError(f"{url} : délai de {self._timeout_s:.0f}s dépassé") from e
                 last_exc = OllamaConnectionError(f"[{attempt}/{self._max_retries}] {url} : {e}")
                 logger.warning("Ollama %s %s → échec (%.0fms) tentative %d/%d : %s",
                                method, path, ms, attempt, self._max_retries, e,
@@ -516,6 +525,9 @@ class OllamaWrapper:
                 except httpx.HTTPStatusError as error:
                     message = error.response.text[:1000]
                     raise OllamaHTTPError(error.response.status_code, message) from error
+                except httpx.TimeoutException as error:
+                    logger.error("Ollama async %s %s → timeout, abandon sans nouvelle tentative", method, path)
+                    raise OllamaTimeoutError(f"{url} : délai de {self._timeout_s:.0f}s dépassé") from error
                 except (httpx.RequestError, OSError, TimeoutError) as error:
                     last_exc = OllamaConnectionError(
                         f"[{attempt}/{self._max_retries}] {url} : {error}"

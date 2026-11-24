@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
  
 from bson import ObjectId
+from bson.errors import InvalidId
  
 from db import get_db
  
@@ -11,6 +12,7 @@ async def save_generation(
     level: str,
     revision: str,
     questions: list[dict],
+    source: str = "generation",
 ) -> tuple[str, list[dict]]:
     """
     Persiste une génération et ses questions.
@@ -26,6 +28,7 @@ async def save_generation(
         "document_name": document_name,
         "level": level,
         "revision": revision,
+        "source": source,
         "created_at": datetime.now(timezone.utc),
         "question_count": len(questions),
     }
@@ -115,3 +118,62 @@ async def append_questions(
     )
  
     return enriched
+
+
+SOURCE_GENERATION = "generation"
+SOURCE_IMPORT = "import"
+
+
+def _to_object_id(value: str) -> ObjectId | None:
+    """Convertit un id texte en ObjectId, ou None s'il est invalide."""
+    try:
+        return ObjectId(value)
+    except (InvalidId, TypeError):
+        return None
+
+
+async def get_generations_for_user(user_id: str) -> list[dict]:
+    """
+    Liste des QCM (générés ou importés) d'un utilisateur, du plus récent au plus ancien.
+    Chaque dict : _id, document_name, level, revision, source, created_at, question_count.
+    """
+    db = get_db()
+    cursor = db.generations.find(
+        {"user_id": user_id},
+        {"question_ids": 0, "user_id": 0},
+    ).sort("created_at", -1)
+
+    generations = []
+    async for gen in cursor:
+        gen["_id"] = str(gen["_id"])
+        gen.setdefault("source", SOURCE_GENERATION)
+        generations.append(gen)
+    return generations
+
+
+async def get_questions_for_generation(
+    generation_id: str,
+    user_id: str,
+) -> list[dict] | None:
+    """
+    Questions d'une génération, triées par position.
+    Retourne None si la génération n'existe pas ou n'appartient pas à user_id.
+    """
+    db = get_db()
+    oid = _to_object_id(generation_id)
+    if oid is None:
+        return None
+
+    gen = await db.generations.find_one({"_id": oid, "user_id": user_id}, {"_id": 1})
+    if gen is None:
+        return None
+
+    cursor = db.questions.find(
+        {"generation_id": generation_id, "user_id": user_id}
+    ).sort("index", 1)
+
+    questions = []
+    async for q in cursor:
+        q["_id"] = str(q["_id"])
+        questions.append(q)
+    return questions
