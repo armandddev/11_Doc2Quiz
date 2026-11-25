@@ -80,6 +80,45 @@ def test_corriger_question_ignore_le_texte_apres_le_json():
     assert correction["bonne_reponse"] == "B"
 
 
+@pytest.mark.integration
+def test_corriger_question_change_toutes_les_reponses_avec_ollama():
+    client = OllamaWrapper()
+    if not client.is_server_running():
+        pytest.skip("Serveur Ollama inaccessible")
+
+    correction = corriger_question(
+        {
+            "question": "Quelle valeur retourne cette fonction ?",
+            "options": [
+                "A. La valeur initiale",
+                "B. La valeur finale",
+                "C. La somme des valeurs",
+                "D. Aucune valeur",
+            ],
+            "bonne_reponse": "A. La valeur initiale",
+        },
+        "Change toutes les valeurs des réponses et remplace-les par quatre "
+        "valeurs inédites liées aux couleurs.",
+        client,
+    )
+
+    old_answers = {
+        option.split(". ", 1)[-1].casefold()
+        for option in (
+            "A. La valeur initiale",
+            "B. La valeur finale",
+            "C. La somme des valeurs",
+            "D. Aucune valeur",
+        )
+    }
+    new_answers = {
+        option.split(". ", 1)[-1].casefold()
+        for option in correction["options"]
+    }
+    assert len(correction["options"]) == 4
+    assert not old_answers.intersection(new_answers)
+
+
 def test_apercu_utilise_la_reponse_corrigee():
     html = render_qcm_html(
         [{

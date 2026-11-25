@@ -52,6 +52,25 @@ def _normaliser_bonne_reponse(options: list[str], bonne_reponse: str) -> str:
     raise ValueError("La bonne réponse doit être une option.")
 
 
+def _answer_text(option: str) -> str:
+    return re.sub(r"^[A-D][.)]\s*", "", str(option).strip(), flags=re.IGNORECASE).casefold()
+
+
+def _requests_all_answers_changed(instruction: str) -> bool:
+    text = instruction.casefold()
+    return (
+        "toutes" in text
+        and any(word in text for word in ("réponse", "reponse", "option", "valeur"))
+        and any(word in text for word in ("change", "modifie", "remplace", "reformule"))
+    )
+
+
+def _all_answers_changed(original: list[str], updated: list[str]) -> bool:
+    original_answers = {_answer_text(option) for option in original}
+    updated_answers = {_answer_text(option) for option in updated}
+    return bool(updated_answers) and not original_answers.intersection(updated_answers)
+
+
 def modifier_question(
     questions: list[dict],
     question_index: int,
@@ -87,21 +106,45 @@ def modifier_question(
 
 def corriger_question(question: dict, erreur: str, llm_client) -> dict:
     """Demande à l'IA de corriger une question à partir de l'erreur signalée."""
-    prompt = f"""Corrige cette question de QCM à partir de l'erreur signalée.
+    original_options = question.get("options", [])
+    prompt = f"""Applique la demande de l'enseignant à cette question de QCM.
 Réponds uniquement avec un JSON contenant les clés question, options et bonne_reponse.
+Respecte exactement la demande. Si elle demande de changer les réponses, remplace
+les textes des options concernés au lieu de les recopier.
 
 Question actuelle : {question.get('question', '')}
-Options actuelles : {question.get('options', [])}
+Options actuelles : {original_options}
 Réponse actuelle : {question.get('bonne_reponse', '')}
-Erreur signalée par l'enseignant : {erreur}
+Demande de l'enseignant : {erreur}
 """
-    response = llm_client.generate_text(prompt, format="json").response
-    correction = _parse_correction_response(response)
 
-    if not isinstance(correction.get("question"), str):
-        raise ValueError("La correction IA ne contient pas de question valide.")
-    if not isinstance(correction.get("options"), list):
-        raise ValueError("La correction IA ne contient pas d'options valides.")
-    if not isinstance(correction.get("bonne_reponse"), str):
-        raise ValueError("La correction IA ne contient pas de bonne réponse valide.")
+    for attempt in range(2):
+        current_prompt = prompt
+        if attempt:
+            current_prompt += (
+                "\nLa réponse précédente n'appliquait pas la demande. "
+                "Réécris réellement les réponses demandées, sans recopier "
+                "les textes existants."
+            )
+        response = llm_client.generate_text(current_prompt, format="json").response
+        correction = _parse_correction_response(response)
+
+        if not isinstance(correction.get("question"), str):
+            raise ValueError("La correction IA ne contient pas de question valide.")
+        if not isinstance(correction.get("options"), list):
+            raise ValueError("La correction IA ne contient pas d'options valides.")
+        if not isinstance(correction.get("bonne_reponse"), str):
+            raise ValueError("La correction IA ne contient pas de bonne réponse valide.")
+
+        if (
+            _requests_all_answers_changed(erreur)
+            and not _all_answers_changed(original_options, correction["options"])
+        ):
+            if attempt == 0:
+                continue
+            raise ValueError(
+                "L'IA n'a pas modifié toutes les réponses demandées. Réessayez."
+            )
+        break
+
     return correction
